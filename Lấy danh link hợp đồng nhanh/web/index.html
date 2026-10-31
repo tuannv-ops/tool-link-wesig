@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool Lấy Link Hợp Đồng Lao Động Nhanh</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .tab-active {
+      border-color: #2563eb;
+      color: #2563eb;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        <img src="/logo.png" 
+             onerror="this.src='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYF62M8Z-nllVbmMgMX28dApj7L_4NEWxOlZIb0PUozw&s=10'" 
+             alt="Logo" 
+             class="h-11 w-auto max-w-[150px] object-contain rounded-xl shadow-xs border border-slate-200/90 hover:opacity-95 transition">
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 leading-tight">Tool Lấy Link Hợp Đồng Lao Động Nhanh</h1>
+          <p class="text-xs text-slate-500">Tra cứu & Lấy Link Ký Hợp Đồng MISA WeSign Theo Số CCCD</p>
+        </div>
+      </div>
+
+      <!-- Trạng thái kết nối -->
+      <div class="flex items-center gap-3">
+        <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+          <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span>
+          <span id="connection-text">Đang kiểm tra kết nối...</span>
+        </div>
+        <button onclick="testConnection()" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          Kiểm tra
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex border-t border-slate-100 space-x-8 text-sm">
+      <button onclick="switchTab('single')" id="tab-btn-single" class="py-3 px-1 border-b-2 tab-active transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+        Tra Cứu 1 Người (Đơn lẻ)
+      </button>
+      <button onclick="switchTab('bulk')" id="tab-btn-bulk" class="py-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+        Tra Cứu Hàng Loạt (Excel / Danh sách)
+      </button>
+      <button onclick="switchTab('config')" id="tab-btn-config" class="py-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        Cấu Hình & Token
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- ================= TAB 1: TRA CỨU ĐƠN LẺ ================= -->
+    <div id="tab-single" class="space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+        <h2 class="text-base font-semibold text-slate-900 mb-2">Tra cứu nhanh link ký theo số CCCD</h2>
+        <p class="text-sm text-slate-500 mb-6">Nhập số Căn cước công dân của người lao động để tìm hợp đồng và lấy đường link ký trực tiếp.</p>
+
+        <form id="single-form" onsubmit="lookupSingle(event)" class="max-w-2xl">
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="relative flex-1">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
+              </div>
+              <input type="text" id="single-cccd" placeholder="Nhập số CCCD (VD: 014207009207)..." required
+                     class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 placeholder-slate-400 text-sm font-medium">
+            </div>
+            <button type="submit" id="single-btn"
+                    class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 whitespace-nowrap">
+              <svg id="single-spinner" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+              <span>Lấy Link Ký</span>
+            </button>
+          </div>
+
+          <!-- CCCD Mẫu để test nhanh -->
+          <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span>Mẫu thử nhanh:</span>
+            <button type="button" onclick="setSingleCCCD('014207009207')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">014207009207 (Lò Khánh Duy)</button>
+            <button type="button" onclick="setSingleCCCD('038207001582')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">038207001582 (Trần Văn Long)</button>
+            <button type="button" onclick="setSingleCCCD('017207002124')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">017207002124 (Phạm Việt Hùng)</button>
+          </div>
+        </form>
+
+        <!-- Khung Kết Quả Đơn Lẻ -->
+        <div id="single-result-card" class="mt-8 hidden border-t border-slate-200 pt-6"></div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 2: TRA CỨU HÀNG LOẠT ================= -->
+    <div id="tab-bulk" class="space-y-6 hidden">
+      <!-- Input Box -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <h2 class="text-base font-semibold text-slate-900 mb-2">Tra cứu link ký hàng loạt</h2>
+        <p class="text-sm text-slate-500 mb-5">Bạn có thể dán danh sách CCCD hoặc tải lên file Excel (.xlsx, .xls, .csv).</p>
+
+        <!-- Chế độ nhập -->
+        <div class="flex border-b border-slate-200 mb-5 gap-6 text-sm font-medium">
+          <button onclick="setBulkMode('text')" id="mode-btn-text" class="pb-2 border-b-2 border-blue-600 text-blue-600 transition">Dán Danh Sách CCCD</button>
+          <button onclick="setBulkMode('file')" id="mode-btn-file" class="pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">Tải Lên File Excel / CSV</button>
+        </div>
+
+        <!-- Mode Text -->
+        <div id="bulk-input-text" class="space-y-3">
+          <div class="flex items-center justify-between text-xs text-slate-500">
+            <label for="bulk-textarea" class="font-medium text-slate-700">Dán danh sách số CCCD (mỗi số 1 dòng):</label>
+            <span id="bulk-text-count">0 số CCCD</span>
+          </div>
+          <textarea id="bulk-textarea" rows="6" oninput="updateBulkCount()" placeholder="014207009207&#10;038207001582&#10;017207002124&#10;077208010463&#10;010206002743"
+                    class="w-full p-3.5 rounded-xl border border-slate-300 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+        </div>
+
+        <!-- Mode File -->
+        <div id="bulk-input-file" class="space-y-4 hidden">
+          <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-8 text-center cursor-pointer transition bg-slate-50 hover:bg-blue-50/50">
+            <input type="file" id="bulk-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleFileSelect(event)">
+            <svg class="w-12 h-12 text-slate-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            <p class="text-sm font-medium text-slate-700">Kéo thả file Excel / CSV vào đây hoặc <span class="text-blue-600 hover:underline">bấm để chọn file</span></p>
+            <p class="text-xs text-slate-400 mt-1">Hỗ trợ định dạng .xlsx, .xls, .csv</p>
+          </div>
+
+          <div id="file-info" class="hidden p-4 rounded-xl bg-blue-50 border border-blue-200 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-blue-900" id="file-name">ten_file.xlsx</p>
+              <p class="text-xs text-blue-700 mt-0.5" id="file-details">120 dòng được tìm thấy</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <label for="excel-column-select" class="text-xs font-medium text-blue-900">Cột CCCD:</label>
+                <select id="excel-column-select" onchange="changeExcelColumn()" class="text-xs px-2.5 py-1.5 rounded-lg border border-blue-300 bg-white text-slate-700 font-medium"></select>
+              </div>
+              <button onclick="clearFile()" class="text-xs px-2.5 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition font-medium">Bỏ chọn</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls: Delay & Buttons -->
+        <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3 text-xs text-slate-600">
+            <span>Độ trễ mỗi request:</span>
+            <select id="bulk-delay" class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium">
+              <option value="0.1">0.1 giây (Nhanh)</option>
+              <option value="0.25" selected>0.25 giây (Khuyên dùng)</option>
+              <option value="0.5">0.5 giây (An toàn)</option>
+              <option value="1.0">1.0 giây (Chậm rãi)</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button id="bulk-start-btn" onclick="startBulkLookup()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition shadow-md shadow-blue-500/20 flex items-center gap-2 text-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span>Bắt Đầu Lấy Link</span>
+            </button>
+            <button id="bulk-stop-btn" onclick="stopBulkLookup()" class="hidden px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition shadow-md text-sm">
+              Dừng Lại
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tiến trình & Thống kê -->
+      <div id="bulk-progress-card" class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hidden space-y-4">
+        <div class="flex items-center justify-between text-sm">
+          <div class="font-semibold text-slate-800" id="progress-status-text">Đang xử lý: 0 / 0</div>
+          <div class="text-xs font-mono font-semibold text-blue-600" id="progress-percent">0%</div>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+          <div id="progress-bar-fill" class="bg-blue-600 h-2.5 rounded-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
+          <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-center">
+            <span class="text-xs text-slate-500 block">Tổng số</span>
+            <span class="text-lg font-bold text-slate-800" id="stat-total">0</span>
+          </div>
+          <div class="bg-emerald-50 border border-emerald-200/80 rounded-xl p-3 text-center">
+            <span class="text-xs text-emerald-700 font-medium block">🎉 Đã hoàn tất</span>
+            <span class="text-lg font-bold text-emerald-800" id="stat-completed">0</span>
+          </div>
+          <div class="bg-blue-50 border border-blue-200/80 rounded-xl p-3 text-center">
+            <span class="text-xs text-blue-700 font-medium block">✍️ NLĐ đã ký</span>
+            <span class="text-lg font-bold text-blue-800" id="stat-signed">0</span>
+          </div>
+          <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-center">
+            <span class="text-xs text-amber-700 font-medium block">⏳ Đang chờ ký</span>
+            <span class="text-lg font-bold text-amber-800" id="stat-pending">0</span>
+          </div>
+          <div class="bg-rose-50 border border-rose-200/80 rounded-xl p-3 text-center">
+            <span class="text-xs text-rose-600 font-medium block">❌ Không tìm thấy</span>
+            <span class="text-lg font-bold text-rose-700" id="stat-notfound">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bảng Kết Quả -->
+      <div id="bulk-results-card" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hidden">
+        <div class="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <h3 class="font-semibold text-slate-900">Danh Sách Kết Quả (<span id="results-count">0</span>)</h3>
+            <select id="results-filter" onchange="filterResults()" class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 font-medium">
+              <option value="all">🔍 Tất cả kết quả</option>
+              <option value="completed">🎉 Đã hoàn thành</option>
+              <option value="signed">✍️ NLĐ đã ký</option>
+              <option value="viewed">👀 Đã xem (Chưa ký)</option>
+              <option value="not_viewed">⏳ Chưa xem</option>
+              <option value="not_found">❌ Không tìm thấy</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="exportToExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Xuất File Excel (.xlsx)
+            </button>
+            <button onclick="copyAllLinks()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+              Sao Chép Toàn Bộ Link
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600 uppercase font-semibold border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 w-12 text-center">STT</th>
+                <th class="py-3 px-4">Số CCCD</th>
+                <th class="py-3 px-4">Họ và Tên NLĐ</th>
+                <th class="py-3 px-4">Đợt / Lô Ký</th>
+                <th class="py-3 px-4 text-center">Tiến Độ Ký (Lịch Sử)</th>
+                <th class="py-3 px-4">Tên Hợp Đồng</th>
+                <th class="py-3 px-4">Link Ký Hợp Đồng</th>
+                <th class="py-3 px-4 text-center w-28">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="results-table-body" class="divide-y divide-slate-100 font-medium"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 3: CẤU HÌNH & TOKEN ================= -->
+    <div id="tab-config" class="space-y-6 hidden">
+      <!-- Card Cập nhật bằng cURL -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-slate-900">Cập nhật nhanh từ câu lệnh cURL (Khuyên Dùng)</h3>
+            <p class="text-sm text-slate-500 mt-1">Khi phiên đăng nhập WeSign hết hạn hoặc bạn muốn chuyển sang đợt hợp đồng khác, chỉ cần copy cURL từ trình duyệt và dán vào đây. Hệ thống sẽ tự động trích xuất Token, Cookie, Batch ID và Tenant ID.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
+          <p class="font-semibold text-slate-700">Cách lấy cURL từ trình duyệt Chrome / Edge / Cốc Cốc:</p>
+          <p>1. Mở trang WeSign danh sách hợp đồng -> Nhấn phím <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono">F12</kbd> (hoặc chuột phải -> Kiểm tra / Inspect).</p>
+          <p>2. Chọn tab <strong>Network (Mạng)</strong> -> Lọc chữ <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono">batch-data</kbd> (hoặc tải lại trang F5).</p>
+          <p>3. Chuột phải vào request <code class="text-blue-600 font-mono">batch-data</code> -> chọn <strong>Copy</strong> -> chọn <strong>Copy as cURL (bash)</strong>.</p>
+          <p>4. Dán vào ô bên dưới và bấm nút <strong>"Phân Tích & Cập Nhật"</strong>.</p>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          <textarea id="curl-textarea" rows="4" placeholder="Dán lệnh curl --url 'https://amisapp.misa.vn/wesign/...' vào đây..."
+                    class="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+          <button onclick="parseAndApplyCurl()" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl text-sm transition shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            <span>Phân Tích & Cập Nhật Tự Động</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card Cấu hình chi tiết -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+        <h3 class="text-base font-semibold text-slate-900 mb-4">Chi Tiết Cấu Hình Kết Nối</h3>
+        <form id="config-form" onsubmit="saveConfig(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Authorization Bearer Token (JWT):</label>
+            <textarea id="cfg-token" rows="3" class="w-full p-2.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" required></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Cookie chuỗi (Bao gồm cf_clearance, x-sessionid, ...):</label>
+            <textarea id="cfg-cookie" rows="3" class="w-full p-2.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" required></textarea>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Document Batch ID (ID Đợt/Lô Hợp Đồng):</label>
+              <input type="text" id="cfg-batch-id" class="w-full p-2.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tenant ID:</label>
+              <input type="text" id="cfg-tenant-id" class="w-full p-2.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Lọc Trạng Thái Hợp Đồng:</label>
+            <select id="cfg-status-filter" class="w-full p-2.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="waiting">Chờ người khác ký (status: [6] - Khuyên dùng)</option>
+              <option value="all">Tất cả trạng thái (status: [])</option>
+            </select>
+          </div>
+
+          <div class="pt-4 flex items-center justify-between border-t border-slate-100">
+            <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-sm transition shadow-sm">
+              Lưu Cấu Hình
+            </button>
+            <button type="button" onclick="testConnection()" class="px-5 py-2.5 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-xl text-sm transition">
+              Kiểm Tra Kết Nối Ngay
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // State management
+    let currentConfig = {};
+    let bulkResults = [];
+    let isProcessing = false;
+    let abortController = null;
+    let currentFileCCCDs = [];
+
+    // On Load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadConfig();
+      testConnection();
+      initDragAndDrop();
+    });
+
+    // Toast Notification helper
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-red-600 text-white',
+        warning: 'bg-amber-600 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+      toast.className = `px-4 py-3 rounded-xl shadow-lg text-sm font-medium transition-all transform duration-300 translate-y-2 opacity-0 flex items-center gap-2 pointer-events-auto ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Tab Switching
+    function switchTab(tab) {
+      ['single', 'bulk', 'config'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          el.classList.remove('hidden');
+          btn.className = 'py-3 px-1 border-b-2 tab-active transition flex items-center gap-2';
+        } else {
+          el.classList.add('hidden');
+          btn.className = 'py-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center gap-2';
+        }
+      });
+    }
+
+    // Load Configuration
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        currentConfig = await res.json();
+        document.getElementById('cfg-token').value = currentConfig.token || '';
+        document.getElementById('cfg-cookie').value = currentConfig.cookie || '';
+        document.getElementById('cfg-batch-id').value = currentConfig.document_batch_id || '';
+        document.getElementById('cfg-tenant-id').value = currentConfig.tenant_id || '';
+        const statusFilter = currentConfig.status_filter || [];
+        document.getElementById('cfg-status-filter').value = statusFilter.length > 0 ? 'waiting' : 'all';
+      } catch (err) {
+        console.error('Lỗi nạp config:', err);
+      }
+    }
+
+    // Save Configuration
+    async function saveConfig(e) {
+      if (e) e.preventDefault();
+      const statusVal = document.getElementById('cfg-status-filter').value;
+      const updated = {
+        token: document.getElementById('cfg-token').value.trim(),
+        cookie: document.getElementById('cfg-cookie').value.trim(),
+        document_batch_id: document.getElementById('cfg-batch-id').value.trim(),
+        tenant_id: document.getElementById('cfg-tenant-id').value.trim(),
+        status_filter: statusVal === 'waiting' ? [6] : []
+      };
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Đã lưu cấu hình thành công!', 'success');
+          testConnection();
+        } else {
+          showToast('Lỗi lưu cấu hình: ' + data.message, 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi kết nối máy chủ', 'error');
+      }
+    }
+
+    // Test Connection
+    async function testConnection() {
+      const badge = document.getElementById('connection-badge');
+      const text = document.getElementById('connection-text');
+      badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200';
+      text.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span> Đang kiểm tra...';
+
+      try {
+        const res = await fetch('/api/test-connection', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200';
+          text.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Đã kết nối: <strong>${data.batchName || 'AMIS WeSign'}</strong>`;
+          showToast(data.message, 'success');
+        } else {
+          badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200';
+          text.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Chưa kết nối (Cần đổi Token/Cookie)`;
+          showToast(data.message, 'error');
+        }
+      } catch (err) {
+        badge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200';
+        text.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span> Lỗi máy chủ cục bộ`;
+      }
+    }
+
+    // Parse cURL
+    async function parseAndApplyCurl() {
+      const curlText = document.getElementById('curl-textarea').value.trim();
+      if (!curlText) {
+        showToast('Vui lòng dán câu lệnh cURL vào ô', 'warning');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/parse-curl', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl: curlText })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Phân tích cURL thành công! Đã lưu cấu hình mới.', 'success');
+          loadConfig();
+          testConnection();
+          document.getElementById('curl-textarea').value = '';
+        } else {
+          showToast('Không thể trích xuất thông tin: ' + data.message, 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi phân tích cURL', 'error');
+      }
+    }
+
+    // Single Lookup
+    function setSingleCCCD(val) {
+      document.getElementById('single-cccd').value = val;
+      lookupSingle();
+    }
+
+    async function lookupSingle(e) {
+      if (e) e.preventDefault();
+      const cccd = document.getElementById('single-cccd').value.trim();
+      if (!cccd) return;
+
+      const btn = document.getElementById('single-btn');
+      const spinner = document.getElementById('single-spinner');
+      const resultCard = document.getElementById('single-result-card');
+
+      btn.disabled = true;
+      spinner.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/lookup-single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cccd })
+        });
+        const data = await res.json();
+
+        resultCard.classList.remove('hidden');
+        if (data.status === 'success') {
+          let stateBadge = '';
+          if (data.signing_state === 'Đã hoàn thành') {
+            stateBadge = `<button onclick="openHistoryModal('${data.doc_id}', '${data.worker_name}', '${data.cccd}')" title="Nhấp để xem chi tiết lịch sử ký" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 transition cursor-pointer shadow-xs">🎉 Đã hoàn thành 🕒</button>`;
+          } else if (data.signing_state === 'NLĐ đã ký') {
+            stateBadge = `<button onclick="openHistoryModal('${data.doc_id}', '${data.worker_name}', '${data.cccd}')" title="Nhấp để xem chi tiết lịch sử ký" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 transition cursor-pointer shadow-xs">✍️ NLĐ đã ký (${data.worker_signed_time || ''}) 🕒</button>`;
+          } else if (data.signing_state === 'Đã xem (Chưa ký)') {
+            stateBadge = `<button onclick="openHistoryModal('${data.doc_id}', '${data.worker_name}', '${data.cccd}')" title="Nhấp để xem chi tiết lịch sử ký" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 transition cursor-pointer shadow-xs">👀 Đã xem (${data.worker_viewed_time || ''}) 🕒</button>`;
+          } else {
+            stateBadge = `<button onclick="openHistoryModal('${data.doc_id}', '${data.worker_name}', '${data.cccd}')" title="Nhấp để xem chi tiết lịch sử ký" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition cursor-pointer shadow-xs">⏳ Chưa xem 🕒</button>`;
+          }
+
+          resultCard.innerHTML = `
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                      Tìm thấy hợp đồng
+                    </span>
+                    ${stateBadge}
+                  </div>
+                  <h3 class="text-xl font-bold text-slate-900">${data.worker_name}</h3>
+                  <p class="text-sm font-medium text-slate-600 mt-1">CCCD: <span class="font-mono font-bold text-blue-700">${data.cccd}</span> | Chức vụ: ${data.job_position || 'Người lao động'}</p>
+                </div>
+                <div class="text-right">
+                  <span class="text-xs text-slate-500">Trạng thái hợp đồng</span>
+                  <p class="text-sm font-bold text-indigo-700">${data.doc_status}</p>
+                  <p class="text-xs text-slate-500 mt-1">Lô: <span class="font-medium text-slate-700">${data.batch_name}</span></p>
+                </div>
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-blue-200/60">
+                <p class="text-xs text-slate-500 mb-1">Tên văn bản / hợp đồng:</p>
+                <p class="text-sm font-semibold text-slate-800 bg-white/70 px-3 py-2 rounded-lg border border-blue-100 font-mono">${data.doc_name}</p>
+              </div>
+
+              <div class="mt-5 bg-white rounded-xl p-4 border border-blue-200 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold uppercase text-slate-500 tracking-wider">Đường link ký hợp đồng (Sign Link)</span>
+                  <span class="text-xs text-emerald-600 font-medium">Sẵn sàng để ký</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono text-xs text-slate-700 break-all select-all">
+                  ${data.sign_link}
+                </div>
+                <div class="flex flex-wrap items-center gap-3 pt-1">
+                  <button onclick="copyToClipboard('${data.sign_link}')" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow-sm min-w-[140px]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    Sao Chép Link Ký
+                  </button>
+                  <a href="${data.sign_link}" target="_blank" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                    Mở Liên Kết
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                  </a>
+                  <button onclick="openHistoryModal('${data.doc_id}', '${data.worker_name}', '${data.cccd}')" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Xem Lịch Sử Ký
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+          showToast(`Đã tìm thấy hợp đồng cho ${data.worker_name}!`, 'success');
+        } else if (data.status === 'not_found') {
+          resultCard.innerHTML = `
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+              <svg class="w-10 h-10 text-amber-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+              <h4 class="font-bold text-amber-900">Không tìm thấy hợp đồng</h4>
+              <p class="text-sm text-amber-700 mt-1">Không có hợp đồng nào khớp với số CCCD <strong>${cccd}</strong> trong đợt ký này.</p>
+            </div>
+          `;
+          showToast('Không tìm thấy hợp đồng cho CCCD này', 'warning');
+        } else {
+          resultCard.innerHTML = `
+            <div class="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+              <svg class="w-10 h-10 text-red-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <h4 class="font-bold text-red-900">Xảy ra lỗi</h4>
+              <p class="text-sm text-red-700 mt-1">${data.message || 'Lỗi không xác định'}</p>
+            </div>
+          `;
+          showToast(data.message || 'Lỗi tra cứu', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi kết nối máy chủ', 'error');
+      } finally {
+        btn.disabled = false;
+        spinner.classList.add('hidden');
+      }
+    }
+
+    // Bulk Mode Switching
+    let bulkMode = 'text';
+    function setBulkMode(mode) {
+      bulkMode = mode;
+      const textBtn = document.getElementById('mode-btn-text');
+      const fileBtn = document.getElementById('mode-btn-file');
+      const textDiv = document.getElementById('bulk-input-text');
+      const fileDiv = document.getElementById('bulk-input-file');
+
+      if (mode === 'text') {
+        textBtn.className = 'pb-2 border-b-2 border-blue-600 text-blue-600 transition';
+        fileBtn.className = 'pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition';
+        textDiv.classList.remove('hidden');
+        fileDiv.classList.add('hidden');
+      } else {
+        fileBtn.className = 'pb-2 border-b-2 border-blue-600 text-blue-600 transition';
+        textBtn.className = 'pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition';
+        fileDiv.classList.remove('hidden');
+        textDiv.classList.add('hidden');
+      }
+    }
+
+    function updateBulkCount() {
+      const text = document.getElementById('bulk-textarea').value;
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      document.getElementById('bulk-text-count').textContent = `${lines.length} số CCCD`;
+    }
+
+    // File Drag & Drop Handlers
+    function initDragAndDrop() {
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('bulk-file-input');
+
+      dropZone.addEventListener('click', () => fileInput.click());
+
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('border-blue-500', 'bg-blue-50/50'), false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-blue-500', 'bg-blue-50/50'), false);
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) uploadFile(files[0]);
+      });
+    }
+
+    function handleFileSelect(e) {
+      const files = e.target.files;
+      if (files.length) uploadFile(files[0]);
+    }
+
+    let uploadedColumnsData = {};
+
+    async function uploadFile(file) {
+      const reader = new FileReader();
+      reader.onload = async function() {
+        try {
+          const base64 = reader.result.split(',')[1];
+          const res = await fetch('/api/parse-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, base64: base64 })
+          });
+          const data = await res.json();
+          if (data.success) {
+            document.getElementById('drop-zone').classList.add('hidden');
+            const fileInfo = document.getElementById('file-info');
+            fileInfo.classList.remove('hidden');
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-details').textContent = `${data.total_rows} dòng dữ liệu`;
+
+            uploadedColumnsData = data.columns_data || {};
+
+            // Populate column select
+            const colSelect = document.getElementById('excel-column-select');
+            colSelect.innerHTML = '';
+            data.columns.forEach(col => {
+              const opt = document.createElement('option');
+              opt.value = col;
+              opt.textContent = col;
+              if (col === data.selected_column) opt.selected = true;
+              colSelect.appendChild(opt);
+            });
+
+            currentFileCCCDs = uploadedColumnsData[data.selected_column] || data.cccds || [];
+            showToast(`Đã nhận diện ${currentFileCCCDs.length} số CCCD từ file!`, 'success');
+          } else {
+            showToast('Lỗi đọc file: ' + data.message, 'error');
+          }
+        } catch (err) {
+          showToast('Lỗi khi tải file lên: ' + err.message, 'error');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function changeExcelColumn() {
+      const selectedCol = document.getElementById('excel-column-select').value;
+      if (uploadedColumnsData[selectedCol]) {
+        currentFileCCCDs = uploadedColumnsData[selectedCol];
+        showToast(`Đã chọn cột '${selectedCol}' (${currentFileCCCDs.length} số CCCD)`, 'info');
+      }
+    }
+
+    function clearFile() {
+      document.getElementById('bulk-file-input').value = '';
+      document.getElementById('file-info').classList.add('hidden');
+      document.getElementById('drop-zone').classList.remove('hidden');
+      currentFileCCCDs = [];
+    }
+
+    // Start Bulk Lookup
+    async function startBulkLookup() {
+      let cccdList = [];
+      if (bulkMode === 'text') {
+        const text = document.getElementById('bulk-textarea').value;
+        cccdList = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      } else {
+        cccdList = currentFileCCCDs;
+      }
+
+      if (!cccdList.length) {
+        showToast('Vui lòng nhập hoặc tải lên ít nhất một số CCCD', 'warning');
+        return;
+      }
+
+      // Reset state
+      bulkResults = [];
+      isProcessing = true;
+      abortController = new AbortController();
+
+      document.getElementById('bulk-start-btn').classList.add('hidden');
+      document.getElementById('bulk-stop-btn').classList.remove('hidden');
+      document.getElementById('bulk-progress-card').classList.remove('hidden');
+      document.getElementById('bulk-results-card').classList.remove('hidden');
+      document.getElementById('results-table-body').innerHTML = '';
+
+      try {
+        const total = cccdList.length;
+        if (document.getElementById('stat-total')) document.getElementById('stat-total').textContent = total;
+        if (document.getElementById('stat-completed')) document.getElementById('stat-completed').textContent = '0';
+        if (document.getElementById('stat-signed')) document.getElementById('stat-signed').textContent = '0';
+        if (document.getElementById('stat-pending')) document.getElementById('stat-pending').textContent = '0';
+        if (document.getElementById('stat-notfound')) document.getElementById('stat-notfound').textContent = '0';
+        if (document.getElementById('results-count')) document.getElementById('results-count').textContent = '0';
+        updateProgress(0, total);
+        if (document.getElementById('progress-status-text')) {
+          document.getElementById('progress-status-text').textContent = 'Đang đồng bộ toàn bộ tài liệu từ các đợt...';
+        }
+
+        const delay = parseFloat(document.getElementById('bulk-delay').value) || 0.25;
+
+        const response = await fetch('/api/lookup-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cccds: cccdList, delay: delay }),
+          signal: abortController.signal
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split('\n\n');
+          buffer = lines.pop(); // keep partial
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.substring(6).trim();
+              if (jsonStr === '[DONE]') {
+                showToast('Đã hoàn thành toàn bộ danh sách!', 'success');
+                return;
+              }
+              if (jsonStr) {
+                try {
+                  const eventData = JSON.parse(jsonStr);
+                  if (eventData.type === 'syncing') {
+                    if (document.getElementById('progress-status-text')) {
+                      document.getElementById('progress-status-text').textContent = eventData.message || 'Đang nạp dữ liệu...';
+                    }
+                    continue;
+                  }
+                  handleBatchEvent(eventData);
+                } catch (e) {
+                  console.error('Lỗi parse SSE:', e);
+                }
+              }
+            }
+          }
+        }
+        showToast('Đã hoàn thành toàn bộ danh sách!', 'success');
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          showToast('Đã tạm dừng quá trình tra cứu', 'info');
+        } else {
+          showToast('Lỗi trong quá trình xử lý: ' + err.message, 'error');
+        }
+      } finally {
+        isProcessing = false;
+        document.getElementById('bulk-start-btn').classList.remove('hidden');
+        document.getElementById('bulk-stop-btn').classList.add('hidden');
+      }
+    }
+
+    function stopBulkLookup() {
+      if (abortController) {
+        abortController.abort();
+      }
+    }
+
+    function handleBatchEvent(event) {
+      const idx = event.index;
+      const total = event.total;
+      const data = event.data;
+
+      bulkResults.push(data);
+      updateProgress(idx, total);
+
+      // Thống kê counters
+      let completed = 0, signed = 0, pending = 0, notfound = 0;
+      bulkResults.forEach(r => {
+        if (r.status === 'success') {
+          if (r.signing_state === 'Đã hoàn thành') completed++;
+          else if (r.signing_state === 'NLĐ đã ký') signed++;
+          else pending++;
+        } else if (r.status === 'not_found') {
+          notfound++;
+        }
+      });
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-completed').textContent = completed;
+      document.getElementById('stat-signed').textContent = signed;
+      document.getElementById('stat-pending').textContent = pending;
+      document.getElementById('stat-notfound').textContent = notfound;
+      document.getElementById('results-count').textContent = bulkResults.length;
+
+      // Append row to table
+      renderRow(data, idx);
+    }
+
+    function updateProgress(current, total) {
+      const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+      document.getElementById('progress-status-text').textContent = `Đang xử lý: ${current} / ${total}`;
+      document.getElementById('progress-percent').textContent = `${percent}%`;
+      document.getElementById('progress-bar-fill').style.width = `${percent}%`;
+    }
+
+    function renderRow(item, stt) {
+      const tbody = document.getElementById('results-table-body');
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50/80 transition';
+      tr.dataset.status = item.status;
+      tr.dataset.signingState = item.signing_state || '';
+
+      let linkCell = '';
+      if (item.status === 'success') {
+        linkCell = `
+          <div class="flex items-center gap-2 max-w-md">
+            <span class="truncate font-mono text-slate-600 select-all">${item.sign_link}</span>
+          </div>
+        `;
+      } else if (item.status === 'not_found') {
+        linkCell = '<span class="text-rose-500 font-medium">Không tìm thấy hợp đồng</span>';
+      } else {
+        linkCell = `<span class="text-red-500 text-xs">${item.message || 'Lỗi'}</span>`;
+      }
+
+      let signingBadge = '-';
+      if (item.status === 'success') {
+        let badgeColor = '';
+        let badgeIcon = '';
+        let label = item.signing_state || 'Chưa rõ';
+        let subTitle = '';
+
+        if (item.signing_state === 'Đã hoàn thành') {
+          badgeColor = 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border-emerald-300';
+          badgeIcon = '🎉';
+          subTitle = item.completed_time ? `Hoàn tất lúc: ${item.completed_time}` : '';
+        } else if (item.signing_state === 'NLĐ đã ký') {
+          badgeColor = 'bg-blue-100 hover:bg-blue-200 text-blue-800 border-blue-300';
+          badgeIcon = '✍️';
+          subTitle = item.worker_signed_time ? `NLĐ ký lúc: ${item.worker_signed_time}` : '';
+        } else if (item.signing_state === 'Đã xem (Chưa ký)') {
+          badgeColor = 'bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300';
+          badgeIcon = '👀';
+          subTitle = item.worker_viewed_time ? `Xem lúc: ${item.worker_viewed_time}` : '';
+        } else {
+          badgeColor = 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300';
+          badgeIcon = '⏳';
+          subTitle = 'Chưa mở xem';
+        }
+
+        signingBadge = `
+          <button onclick="openHistoryModal('${item.doc_id}', '${item.worker_name}', '${item.cccd}')" 
+                  title="Nhấp để xem chi tiết lịch sử (mở xem, ký tên, hoàn tất). ${subTitle}" 
+                  class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${badgeColor} transition cursor-pointer hover:shadow-sm">
+            <span>${badgeIcon}</span>
+            <span>${label}</span>
+            <svg class="w-3 h-3 opacity-60 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </button>
+        `;
+      }
+
+      const actionBtn = item.status === 'success' ? `
+        <div class="flex items-center justify-center gap-1">
+          <button onclick="copyToClipboard('${item.sign_link}')" title="Sao chép link ký" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+          </button>
+          <a href="${item.sign_link}" target="_blank" title="Mở liên kết" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+          </a>
+          <button onclick="openHistoryModal('${item.doc_id}', '${item.worker_name}', '${item.cccd}')" title="Xem lịch sử ký chi tiết" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </button>
+        </div>
+      ` : '-';
+
+      tr.innerHTML = `
+        <td class="py-3 px-4 text-center text-slate-400 font-mono">${stt}</td>
+        <td class="py-3 px-4 font-mono font-semibold text-slate-800">${item.cccd}</td>
+        <td class="py-3 px-4 font-semibold text-slate-900">${item.worker_name || '-'}</td>
+        <td class="py-3 px-4 text-blue-700 font-medium">${item.batch_name || '-'}</td>
+        <td class="py-3 px-4 text-center">${signingBadge}</td>
+        <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${item.doc_name || ''}">${item.doc_name || '-'}</td>
+        <td class="py-3 px-4">${linkCell}</td>
+        <td class="py-3 px-4 text-center">${actionBtn}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function filterResults() {
+      const filter = document.getElementById('results-filter').value;
+      const rows = document.querySelectorAll('#results-table-body tr');
+      rows.forEach(tr => {
+        const s = tr.dataset.status;
+        const signing = tr.dataset.signingState;
+        let show = false;
+        if (filter === 'all') show = true;
+        else if (filter === 'completed') show = (signing === 'Đã hoàn thành');
+        else if (filter === 'signed') show = (signing === 'NLĐ đã ký');
+        else if (filter === 'viewed') show = (signing === 'Đã xem (Chưa ký)');
+        else if (filter === 'not_viewed') show = (signing === 'Chưa xem' && s === 'success');
+        else if (filter === 'not_found') show = (s === 'not_found');
+        tr.style.display = show ? '' : 'none';
+      });
+    }
+
+    // Export to Excel
+    async function exportToExcel() {
+      if (!bulkResults.length) {
+        showToast('Chưa có kết quả để xuất file', 'warning');
+        return;
+      }
+      try {
+        const res = await fetch('/api/export-excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ results: bulkResults })
+        });
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Danh_Sach_Link_Ky_${new Date().toISOString().slice(0,10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('Đã tải xuống file Excel thành công!', 'success');
+      } catch (err) {
+        showToast('Lỗi khi xuất file Excel', 'error');
+      }
+    }
+
+    // Copy All Links
+    function copyAllLinks() {
+      const validLinks = bulkResults.filter(r => r.status === 'success' && r.sign_link);
+      if (!validLinks.length) {
+        showToast('Không có link ký hợp lệ để sao chép', 'warning');
+        return;
+      }
+      const lines = validLinks.map(r => `${r.cccd}\t${r.worker_name}\t${r.sign_link}`);
+      copyToClipboard(lines.join('\n'));
+      showToast(`Đã sao chép ${validLinks.length} link ký vào bộ nhớ tạm!`, 'success');
+    }
+
+    // Modal Lịch Sử Ký Chi Tiết
+    async function openHistoryModal(docId, workerName, cccd) {
+      const modal = document.getElementById('history-modal');
+      const container = document.getElementById('modal-timeline-container');
+      const docTitle = document.getElementById('modal-doc-title');
+      const badge = document.getElementById('modal-signing-badge');
+      const eventCount = document.getElementById('modal-event-count');
+
+      docTitle.textContent = `${workerName || 'Người lao động'} (Số CCCD: ${cccd})`;
+      badge.textContent = 'Đang tải...';
+      badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700';
+      container.innerHTML = `
+        <div class="py-12 text-center text-slate-400">
+          <div class="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p class="text-xs font-medium">Đang tải lịch sử chi tiết từ máy chủ AMIS WeSign...</p>
+        </div>
+      `;
+      modal.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/document-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc_id: docId, worker_name: workerName })
+        });
+        const json = await res.json();
+        const data = json.data;
+
+        if (data.is_completed) {
+          badge.textContent = '🎉 Đã hoàn tất';
+          badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
+        } else if (data.worker_signed) {
+          badge.textContent = '✍️ NLĐ đã ký';
+          badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300';
+        } else if (data.worker_viewed) {
+          badge.textContent = '👀 Đã xem (Chưa ký)';
+          badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300';
+        } else {
+          badge.textContent = '⏳ Chưa xem';
+          badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300';
+        }
+
+        const events = data.events || [];
+        eventCount.textContent = `Tổng cộng ${events.length} mốc sự kiện`;
+
+        if (!events.length) {
+          container.innerHTML = '<div class="py-8 text-center text-slate-400 text-xs">Chưa có mốc sự kiện nào được ghi nhận cho văn bản này.</div>';
+          return;
+        }
+
+        let html = '<div class="relative border-l-2 border-slate-200 ml-4 pl-6 space-y-5">';
+        events.forEach((ev) => {
+          let dotClass = 'bg-slate-400';
+          let actIcon = '📄';
+          let badgeText = ev.action_text;
+          let cardBg = 'bg-slate-50 border-slate-200/80';
+
+          if (ev.action === 6) {
+            dotClass = 'bg-emerald-500 ring-4 ring-emerald-100';
+            actIcon = '🎉';
+            cardBg = 'bg-emerald-50/60 border-emerald-200';
+          } else if (ev.action === 5) {
+            dotClass = 'bg-blue-600 ring-4 ring-blue-100';
+            actIcon = '✍️';
+            cardBg = 'bg-blue-50/60 border-blue-200';
+          } else if (ev.action === 4) {
+            dotClass = 'bg-amber-500 ring-4 ring-amber-100';
+            actIcon = '👀';
+            cardBg = 'bg-amber-50/50 border-amber-200';
+          } else if (ev.action === 0) {
+            dotClass = 'bg-indigo-500 ring-4 ring-indigo-100';
+            actIcon = '📤';
+            cardBg = 'bg-indigo-50/50 border-indigo-200';
+          }
+
+          html += `
+            <div class="relative group">
+              <span class="absolute -left-[31px] top-1.5 w-3.5 h-3.5 rounded-full ${dotClass}"></span>
+              <div class="border rounded-xl p-3.5 ${cardBg} shadow-xs transition">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                    <span>${actIcon}</span> ${badgeText}
+                  </span>
+                  <span class="font-mono text-xs text-slate-500 font-semibold">${ev.time}</span>
+                </div>
+                <div class="mt-1 text-xs text-slate-600">
+                  <span class="font-semibold text-slate-900">${ev.user_name || 'Người dùng'}</span>
+                  ${ev.user_email ? `<span class="text-slate-400 font-mono text-[11px] ml-1">(${ev.user_email})</span>` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<div class="py-8 text-center text-red-500 text-xs">Lỗi khi tải lịch sử: ${err.message}</div>`;
+      }
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('history-modal').classList.add('hidden');
+    }
+
+    // Đóng modal khi bấm phím Escape
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeHistoryModal();
+    });
+  </script>
+
+  <!-- Modal Xem Lịch Sử Ký Chi Tiết -->
+  <div id="history-modal" onclick="if(event.target === this) closeHistoryModal()" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+            <span>🕒 Lịch Sử Ký Hợp Đồng</span>
+            <span id="modal-signing-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold"></span>
+          </h3>
+          <p class="text-xs text-slate-500 mt-1 font-medium" id="modal-doc-title">Đang tải...</p>
+        </div>
+        <button onclick="closeHistoryModal()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto space-y-4 flex-1" id="modal-timeline-container">
+        <!-- Content will be injected here -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <span class="text-xs text-slate-500 font-medium" id="modal-event-count">0 mốc sự kiện</span>
+        <button onclick="closeHistoryModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold transition">Đóng</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
