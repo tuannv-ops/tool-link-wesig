@@ -28,11 +28,24 @@ except ImportError:
 
 from wesign_api import WeSignClient, parse_curl_command
 from agency_api import parse_agency_curl
-from get_links import find_cccd_column
+
+try:
+    from get_links import find_cccd_column
+except ImportError:
+    def find_cccd_column(df):
+        keywords = ['cccd', 'cmnd', 'căn cước', 'can cuoc', 'dinh danh', 'định danh', 'so_cccd', 'socccd', 'id']
+        for col in df.columns:
+            col_lower = str(col).lower().strip()
+            for kw in keywords:
+                if kw in col_lower:
+                    return col
+        return df.columns[0] if len(df.columns) > 0 else 'CCCD'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, 'web')
 INDEX_HTML = os.path.join(WEB_DIR, 'index.html')
+if not os.path.exists(INDEX_HTML):
+    INDEX_HTML = os.path.join(BASE_DIR, 'index.html')
 
 client = WeSignClient()
 
@@ -355,17 +368,29 @@ class AppHandler(BaseHTTPRequestHandler):
         return
 
 def run_server(port=5050, auto_open=True):
+    ThreadingHTTPServer.allow_reuse_address = True
     httpd = None
     target_port = port
-    # Tự động chuyển cổng nếu 5050 đang bị ứng dụng khác hoặc phiên trước chiếm dụng
-    for p in range(port, port + 10):
+
+    # Nếu chạy trên Render/Cloud có biến môi trường PORT
+    if 'PORT' in os.environ:
         try:
-            server_address = ('', p)
+            server_address = ('0.0.0.0', port)
             httpd = ThreadingHTTPServer(server_address, AppHandler)
-            target_port = p
-            break
-        except OSError:
-            continue
+            target_port = port
+        except Exception as e:
+            print(f"[!] Loi khoi dong tren cong Render {port}: {e}")
+            return
+    else:
+        # Chạy máy cục bộ: tự động dò cổng 5050 -> 5059
+        for p in range(port, port + 10):
+            try:
+                server_address = ('', p)
+                httpd = ThreadingHTTPServer(server_address, AppHandler)
+                target_port = p
+                break
+            except OSError:
+                continue
 
     if not httpd:
         print(f"[!] Khong the mo cong tu {port} den {port + 9}. Vui long tat cac cua so Python dang chay ngam.")
