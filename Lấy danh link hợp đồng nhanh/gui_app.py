@@ -6,13 +6,33 @@ import threading
 import webbrowser
 from datetime import datetime
 
+if sys.platform == 'win32':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
-import pandas as pd
-from PIL import Image, ImageTk
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+try:
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    HAS_OPENPYXL = True
+except ImportError:
+    HAS_OPENPYXL = False
 
 from wesign_api import WeSignClient, parse_curl_command
 from get_links import find_cccd_column
@@ -30,7 +50,7 @@ class WeSignGUIApp:
         # Nạp logo thương hiệu
         self.logo_photo = None
         logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png')
-        if os.path.exists(logo_path):
+        if os.path.exists(logo_path) and HAS_PIL:
             try:
                 pil_img = Image.open(logo_path)
                 w, h = pil_img.size
@@ -222,12 +242,13 @@ class WeSignGUIApp:
         tree_container = tk.Frame(right_frame)
         tree_container.pack(fill=tk.BOTH, expand=True)
 
-        columns = ("stt", "cccd", "name", "signing_state", "signed_time", "batch", "doc_name", "link")
+        columns = ("stt", "cccd", "name", "phone", "signing_state", "signed_time", "batch", "doc_name", "link")
         self.tree = ttk.Treeview(tree_container, columns=columns, show='headings', selectmode='browse')
 
         self.tree.heading("stt", text="STT")
         self.tree.heading("cccd", text="Số CCCD")
         self.tree.heading("name", text="Họ và Tên NLĐ")
+        self.tree.heading("phone", text="Số ĐT / Zalo")
         self.tree.heading("signing_state", text="Tiến Độ Ký")
         self.tree.heading("signed_time", text="Thời Gian Ký")
         self.tree.heading("batch", text="Đợt / Lô Ký")
@@ -236,12 +257,13 @@ class WeSignGUIApp:
 
         self.tree.column("stt", width=40, minwidth=35, anchor="center")
         self.tree.column("cccd", width=110, minwidth=100, anchor="center")
-        self.tree.column("name", width=140, minwidth=120, anchor="w")
-        self.tree.column("signing_state", width=120, minwidth=100, anchor="center")
-        self.tree.column("signed_time", width=130, minwidth=110, anchor="center")
-        self.tree.column("batch", width=140, minwidth=120, anchor="w")
-        self.tree.column("doc_name", width=200, minwidth=140, anchor="w")
-        self.tree.column("link", width=260, minwidth=180, anchor="w")
+        self.tree.column("name", width=130, minwidth=110, anchor="w")
+        self.tree.column("phone", width=105, minwidth=95, anchor="center")
+        self.tree.column("signing_state", width=110, minwidth=95, anchor="center")
+        self.tree.column("signed_time", width=120, minwidth=100, anchor="center")
+        self.tree.column("batch", width=130, minwidth=110, anchor="w")
+        self.tree.column("doc_name", width=180, minwidth=130, anchor="w")
+        self.tree.column("link", width=220, minwidth=160, anchor="w")
 
         tree_scroll_y = tk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
         tree_scroll_x = tk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.tree.xview)
@@ -257,15 +279,30 @@ class WeSignGUIApp:
         action_bar = tk.Frame(right_frame, bg="#FFFFFF")
         action_bar.pack(fill=tk.X, pady=(10, 0))
 
+        btn_resend_all = tk.Button(action_bar, text="📨 Gửi Lại Cho NLĐ Chưa Ký", font=self.font_small,
+                                   bg="#7C3AED", fg="white", activebackground="#6D28D9", activeforeground="white",
+                                   relief=tk.FLAT, padx=12, pady=7, cursor="hand2", command=self.resend_pending_contracts)
+        btn_resend_all.pack(side=tk.LEFT, padx=(0, 8))
+
+        btn_zalo_all = tk.Button(action_bar, text="💬 Chép Tin Zalo Hàng Loạt", font=self.font_small,
+                                 bg="#0284C7", fg="white", activebackground="#0369A1", activeforeground="white",
+                                 relief=tk.FLAT, padx=12, pady=7, cursor="hand2", command=self.copy_bulk_zalo_messages)
+        btn_zalo_all.pack(side=tk.LEFT, padx=(0, 8))
+
         btn_export = tk.Button(action_bar, text="📊 XUẤT FILE EXCEL (.xlsx)", font=("Segoe UI", 10, "bold"),
                                bg="#059669", fg="white", activebackground="#047857", activeforeground="white",
-                               relief=tk.FLAT, padx=16, pady=7, cursor="hand2", command=self.export_excel)
-        btn_export.pack(side=tk.LEFT, padx=(0, 10))
+                               relief=tk.FLAT, padx=14, pady=7, cursor="hand2", command=self.export_excel)
+        btn_export.pack(side=tk.LEFT, padx=(0, 8))
 
         btn_copy_all = tk.Button(action_bar, text="📋 Sao Chép Tất Cả Link", font=self.font_small,
                                  bg="#334155", fg="white", activebackground="#1E293B", activeforeground="white",
                                  relief=tk.FLAT, padx=12, pady=7, cursor="hand2", command=self.copy_all_links)
-        btn_copy_all.pack(side=tk.LEFT, padx=(0, 10))
+        btn_copy_all.pack(side=tk.LEFT, padx=(0, 6))
+
+        btn_copy_only = tk.Button(action_bar, text="🔗 Chỉ Chép Link", font=self.font_small,
+                                  bg="#F1F5F9", fg="#334155", activebackground="#E2E8F0", activeforeground="#0F172A",
+                                  relief=tk.GROOVE, padx=10, pady=6, cursor="hand2", command=self.copy_only_links)
+        btn_copy_only.pack(side=tk.LEFT, padx=(0, 8))
 
         btn_clear_results = tk.Button(action_bar, text="🗑 Xóa Bảng", font=self.font_small,
                                       bg="#F1F5F9", fg="#475569", relief=tk.GROOVE, padx=10, pady=6,
@@ -274,6 +311,11 @@ class WeSignGUIApp:
 
     def setup_context_menu(self):
         self.menu = tk.Menu(self.root, tearoff=0)
+        self.menu.add_command(label="📨 Gửi Lại Hợp Đồng Cho NLĐ", command=self.resend_selected_contract)
+        self.menu.add_separator()
+        self.menu.add_command(label="💬 Mở Chat Zalo Với NLĐ", command=self.open_selected_zalo)
+        self.menu.add_command(label="📋 Sao Chép Tin Nhắn Zalo", command=self.copy_selected_zalo_msg)
+        self.menu.add_separator()
         self.menu.add_command(label="📋 Sao chép Link Ký", command=self.copy_selected_link)
         self.menu.add_command(label="🌐 Mở Link Trong Trình Duyệt", command=self.open_selected_link)
         self.menu.add_command(label="🕒 Xem Chi Tiết Lịch Sử Ký...", command=self.show_history_dialog)
@@ -329,6 +371,9 @@ class WeSignGUIApp:
 
         try:
             ext = os.path.splitext(file_path)[1].lower()
+            if ext != '.txt' and not pd:
+                messagebox.showwarning("Thiếu thư viện", "Chưa cài đặt thư viện 'pandas' và 'openpyxl' để đọc Excel.\nVui lòng chạy lệnh: pip install -r requirements.txt")
+                return
             cccd_list = []
             if ext == '.txt':
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -444,6 +489,7 @@ class WeSignGUIApp:
 
         stt = current
         cccd = res.get('cccd', '')
+        phone = res.get('phone', '') or '-'
         status = res.get('status')
 
         if status == 'success':
@@ -479,7 +525,7 @@ class WeSignGUIApp:
             link_text = res.get('message', 'Lỗi')
             tag = 'notfound'
 
-        item_id = self.tree.insert("", tk.END, values=(stt, cccd, name, signing_state, signed_time, batch_name, doc_name, link_text), tags=(tag,))
+        item_id = self.tree.insert("", tk.END, values=(stt, cccd, name, phone, signing_state, signed_time, batch_name, doc_name, link_text), tags=(tag,))
 
         self.tree.tag_configure('completed', foreground='#047857', font=("Segoe UI", 9, "bold"))
         self.tree.tag_configure('signed', foreground='#1D4ED8', font=("Segoe UI", 9, "bold"))
@@ -517,6 +563,7 @@ class WeSignGUIApp:
 
             stt = idx + 1
             cccd = res.get('cccd', '')
+            phone = res.get('phone', '') or '-'
             if status == 'success':
                 name = res.get('worker_name', '')
                 signed_time = res.get('completed_time') or res.get('worker_signed_time') or res.get('worker_viewed_time') or '-'
@@ -533,7 +580,7 @@ class WeSignGUIApp:
                 link_text = "(Không tìm thấy)" if status == 'not_found' else res.get('message', 'Lỗi')
                 tag = 'notfound'
 
-            self.tree.insert("", tk.END, values=(stt, cccd, name, signing_state, signed_time, batch_name, doc_name, link_text), tags=(tag,))
+            self.tree.insert("", tk.END, values=(stt, cccd, name, phone, signing_state, signed_time, batch_name, doc_name, link_text), tags=(tag,))
 
     def show_history_dialog(self):
         selected = self.tree.selection()
@@ -642,12 +689,12 @@ class WeSignGUIApp:
         if not selected:
             return
         vals = self.tree.item(selected[0])['values']
-        # Cột link nằm ở chỉ số 7
-        if len(vals) >= 8:
-            link = str(vals[7])
+        if len(vals) >= 9:
+            link = str(vals[8])
             if link.startswith('http'):
                 self.root.clipboard_clear()
                 self.root.clipboard_append(link)
+                self.root.update()
                 messagebox.showinfo("Đã sao chép", f"Đã chép link ký của {vals[2]} vào bộ nhớ tạm!")
 
     def open_selected_link(self):
@@ -655,10 +702,59 @@ class WeSignGUIApp:
         if not selected:
             return
         vals = self.tree.item(selected[0])['values']
-        if len(vals) >= 8:
-            link = str(vals[7])
+        if len(vals) >= 9:
+            link = str(vals[8])
             if link.startswith('http'):
                 webbrowser.open(link)
+
+    def open_selected_zalo(self):
+        selected = self.tree.selection()
+        if not selected:
+            return
+        vals = self.tree.item(selected[0])['values']
+        phone = str(vals[3]).strip()
+        if not phone or phone == '-':
+            messagebox.showwarning("Thông báo", f"Không tìm thấy số điện thoại của {vals[2]} để mở Zalo.")
+            return
+        zalo_url = f"https://zalo.me/{phone}"
+        webbrowser.open(zalo_url)
+
+    def copy_selected_zalo_msg(self):
+        selected = self.tree.selection()
+        if not selected:
+            return
+        vals = self.tree.item(selected[0])['values']
+        cccd = str(vals[1])
+        r = next((x for x in self.results if str(x.get('cccd')) == cccd), None)
+        if not r or not r.get('sign_link'):
+            messagebox.showwarning("Thông báo", "Không có link ký hợp lệ để tạo tin nhắn.")
+            return
+        name = r.get('worker_name', vals[2])
+        phone = r.get('phone', '')
+        link = r.get('sign_link', '')
+        msg = f"Kính gửi Anh/Chị {name},\nCông ty gửi lại Anh/Chị đường link ký Hợp đồng lao động điện tử:\n👉 {link}\nAnh/Chị vui lòng bấm vào link trên để kiểm tra thông tin và ký xác nhận sớm giúp công ty nhé. Trân trọng!"
+        self.root.clipboard_clear()
+        self.root.clipboard_append(msg)
+        self.root.update()
+        messagebox.showinfo("Đã sao chép", f"Đã sao chép tin nhắn Zalo kèm link ký của {name}!")
+
+    def copy_bulk_zalo_messages(self):
+        pending = [r for r in self.results if r.get('status') == 'success' and r.get('signing_state') != 'Đã hoàn thành' and r.get('sign_link')]
+        if not pending:
+            messagebox.showwarning("Thông báo", "Không có NLĐ nào đang chờ ký để tạo tin nhắn Zalo.")
+            return
+        msgs = []
+        for r in pending:
+            name = r.get('worker_name', '')
+            phone = r.get('phone', '')
+            link = r.get('sign_link', '')
+            phone_info = f" (SĐT: {phone} - Zalo: https://zalo.me/{phone})" if phone else ""
+            msgs.append(f"--- [Gửi cho: {name}{phone_info}] ---\nKính gửi Anh/Chị {name},\nCông ty gửi đường link ký Hợp đồng lao động điện tử:\n👉 {link}\nAnh/Chị vui lòng bấm vào link trên để ký xác nhận nhé.\n")
+        text_all = "\n".join(msgs)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text_all)
+        self.root.update()
+        messagebox.showinfo("Đã sao chép", f"Đã sao chép danh sách tin nhắn Zalo cho {len(pending)} người lao động chưa hoàn tất ký!")
 
     def copy_selected_cccd(self):
         selected = self.tree.selection()
@@ -669,6 +765,7 @@ class WeSignGUIApp:
             cccd = str(vals[1])
             self.root.clipboard_clear()
             self.root.clipboard_append(cccd)
+            self.root.update()
             messagebox.showinfo("Đã sao chép", f"Đã chép CCCD {cccd} vào bộ nhớ tạm!")
 
     def copy_all_links(self):
@@ -677,15 +774,71 @@ class WeSignGUIApp:
             messagebox.showwarning("Thông báo", "Chưa có link ký hợp lệ nào để sao chép.")
             return
 
-        lines = [f"{r.get('cccd')}\t{r.get('worker_name')}\t{r.get('signing_state', '-')}\t{r.get('batch_name')}\t{r.get('sign_link')}" for r in valid]
+        lines = [f"{r.get('cccd')}\t{r.get('worker_name')}\t{r.get('phone', '')}\t{r.get('zalo_link', '')}\t{r.get('signing_state', '-')}\t{r.get('batch_name')}\t{r.get('sign_link')}" for r in valid]
         text_all = "\n".join(lines)
         self.root.clipboard_clear()
         self.root.clipboard_append(text_all)
-        messagebox.showinfo("Đã sao chép", f"Đã sao chép toàn bộ {len(valid)} link ký vào bộ nhớ tạm (dạng bảng: CCCD | Họ tên | Tiến độ ký | Đợt ký | Link)!")
+        self.root.update()
+        messagebox.showinfo("Đã sao chép", f"Đã sao chép toàn bộ {len(valid)} dòng vào bộ nhớ tạm (dạng bảng: CCCD | Họ tên | SĐT | Link Zalo | Tiến độ ký | Đợt ký | Link Ký)!")
+
+    def copy_only_links(self):
+        valid = [r for r in self.results if r.get('status') == 'success' and r.get('sign_link')]
+        if not valid:
+            messagebox.showwarning("Thông báo", "Chưa có link ký hợp lệ nào để sao chép.")
+            return
+
+        lines = [str(r.get('sign_link')) for r in valid]
+        text_all = "\n".join(lines)
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text_all)
+        self.root.update()
+        messagebox.showinfo("Đã sao chép", f"Đã sao chép {len(valid)} link ký URL vào bộ nhớ tạm!")
+
+    def resend_selected_contract(self):
+        selected = self.tree.selection()
+        if not selected:
+            return
+        vals = self.tree.item(selected[0])['values']
+        cccd = str(vals[1])
+        target_res = next((r for r in self.results if str(r.get('cccd', '')) == cccd), None)
+        if not target_res or not target_res.get('doc_id'):
+            messagebox.showwarning("Thông báo", "Không tìm thấy mã hợp đồng để gửi lại.")
+            return
+
+        worker_name = target_res.get('worker_name', cccd)
+        if not messagebox.askyesno("Xác nhận", f"Bạn có chắc muốn gửi lại thông báo ký hợp đồng cho '{worker_name}' qua AMIS WeSign?"):
+            return
+
+        doc_id = target_res.get('doc_id')
+        res = self.client.resend_documents(doc_id)
+        if res.get('success'):
+            messagebox.showinfo("Thành công", f"Đã gửi lại hợp đồng thành công cho {worker_name}!")
+        else:
+            messagebox.showerror("Thất bại", res.get('message', 'Không thể gửi lại hợp đồng.'))
+
+    def resend_pending_contracts(self):
+        pending = [r for r in self.results if r.get('status') == 'success' and r.get('doc_id') and r.get('signing_state') != 'Đã hoàn thành']
+        if not pending:
+            messagebox.showinfo("Thông báo", "Không có người lao động nào chưa hoàn thành ký để gửi lại.")
+            return
+
+        if not messagebox.askyesno("Xác nhận", f"Hệ thống tìm thấy {len(pending)} NLĐ chưa hoàn thành ký.\nBạn có chắc muốn gửi lại thông báo ký cho toàn bộ {len(pending)} người này qua AMIS WeSign?"):
+            return
+
+        doc_ids = [r['doc_id'] for r in pending]
+        res = self.client.resend_documents(doc_ids)
+        if res.get('success'):
+            messagebox.showinfo("Thành công", f"Đã gửi lại hợp đồng thành công cho toàn bộ {len(doc_ids)} người lao động!")
+        else:
+            messagebox.showerror("Thất bại", res.get('message', 'Lỗi khi gửi lại hợp đồng hàng loạt.'))
 
     def export_excel(self):
         if not self.results:
             messagebox.showwarning("Thông báo", "Chưa có dữ liệu để xuất Excel.")
+            return
+
+        if not pd or not HAS_OPENPYXL:
+            messagebox.showwarning("Thiếu thư viện", "Chưa cài đặt thư viện 'openpyxl' và 'pandas' để xuất Excel.\nVui lòng chạy lệnh: pip install -r requirements.txt")
             return
 
         now_str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -750,6 +903,8 @@ class WeSignGUIApp:
                     "STT": stt,
                     "Số CCCD": cccd,
                     "Họ và Tên NLĐ": worker_name,
+                    "Số ĐT NLĐ": r.get('phone', ''),
+                    "Link Chat Zalo": r.get('zalo_link', f"https://zalo.me/{r.get('phone')}" if r.get('phone') else ''),
                     "Chức Vụ": position,
                     "Đợt Ký / Lô Hợp Đồng": batch_name,
                     "Tiến Độ Ký (Lịch Sử)": signing_state,

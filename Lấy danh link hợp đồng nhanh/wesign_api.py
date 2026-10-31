@@ -5,6 +5,7 @@ import os
 import base64
 from datetime import datetime
 import requests
+from agency_api import AgencyClient, parse_agency_curl
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 
@@ -90,6 +91,7 @@ class WeSignClient:
         self.batches_cache_time = 0
         self.contracts_cache = {}  # cccd -> doc info
         self.contracts_cache_time = 0
+        self.agency_client = AgencyClient(self.config_path)
 
     def load_config(self):
         cfg = DEFAULT_CONFIG.copy()
@@ -485,6 +487,13 @@ class WeSignClient:
                     "completed_time": h_info.get("completed_time", ""),
                     "history_events": h_info.get("events", [])
                 })
+            # Tự động lấy số điện thoại & Zalo từ Agency Portal
+            phone_info = self.agency_client.get_phone_by_cccd(cccd_clean)
+            res.update({
+                "phone": phone_info.get("phone", ""),
+                "ops_id": phone_info.get("ops_id", ""),
+                "zalo_link": phone_info.get("zalo_link", "")
+            })
             return res
 
         # 1. TÌM TRONG KHO DỮ LIỆU ĐỒNG BỘ TOÀN BỘ TÀI LIỆU
@@ -623,9 +632,13 @@ class WeSignClient:
             except Exception:
                 continue
 
+        phone_info = self.agency_client.get_phone_by_cccd(cccd_clean)
         return {
             "status": "not_found",
             "cccd": cccd_clean,
+            "phone": phone_info.get("phone", ""),
+            "ops_id": phone_info.get("ops_id", ""),
+            "zalo_link": phone_info.get("zalo_link", ""),
             "message": "Không tìm thấy hợp đồng nào khớp với số CCCD này trong bất kỳ đợt nào"
         }
 
@@ -641,3 +654,51 @@ class WeSignClient:
             if idx < total - 1 and delay > 0:
                 time.sleep(delay)
         return results
+
+    def resend_documents(self, doc_ids):
+        """
+        Gửi lại thông báo/email/SMS mời ký hợp đồng cho NLĐ (Resend contract)
+        Hỗ trợ truyền vào 1 doc_id (str) hoặc danh sách doc_ids (list).
+        API chuẩn AMIS WeSign: POST https://amisapp.misa.vn/wesign/g2/api/file-management/api/v3/documents/resend-all
+        """
+        if isinstance(doc_ids, str):
+            doc_ids = [doc_ids]
+        doc_ids = [d for d in doc_ids if d]
+        if not doc_ids:
+            return {"success": False, "message": "Không có ID hợp đồng (documentId) hợp lệ để gửi lại"}
+
+        tenant_id = self.config.get('tenant_id', '')
+        url = "https://amisapp.misa.vn/wesign/g2/api/file-management/api/v3/documents/resend-all"
+        headers = self._get_headers()
+        cookies = parse_cookies_str(self.config.get('cookie', ''))
+
+        payload = {
+            "documents": [{"documentId": d, "tenantId": tenant_id} for d in doc_ids],
+            "Device": {
+                "deviceName": headers.get('User-Agent', DEFAULT_CONFIG['user_agent']),
+                "location": ""
+            }
+        }
+
+        try:
+            res = requests.post(url, headers=headers, cookies=cookies, json=payload, timeout=12)
+            if res.status_code == 200:
+                return {
+                    "success": True,
+                    "count": len(doc_ids),
+                    "message": f"Đã gửi lại thành công cho {len(doc_ids)} hợp đồng qua AMIS WeSign!"
+                }
+            else:
+                err_msg = res.text
+                try:
+                    err_json = res.json()
+                    err_msg = err_json.get('error', {}).get('message', err_msg)
+                except Exception:
+                    pass
+                return {
+                    "success": False,
+                    "status_code": res.status_code,
+                    "message": f"Máy chủ AMIS WeSign phản hồi: {err_msg}"
+                }
+        except Exception as e:
+            return {"success": False, "message": f"Lỗi kết nối khi gửi lại: {str(e)}"}

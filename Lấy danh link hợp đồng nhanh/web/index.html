@@ -226,13 +226,25 @@
           </div>
 
           <div class="flex items-center gap-2">
+            <button onclick="resendContractBulk()" title="Gửi lại thông báo/email mời ký cho toàn bộ NLĐ chưa hoàn thành ký" class="px-3.5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+              Gửi Lại Cho NLĐ Chưa Ký
+            </button>
             <button onclick="exportToExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
               Xuất File Excel (.xlsx)
             </button>
-            <button onclick="copyAllLinks()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+            <button onclick="copyAllLinks()" title="Sao chép dạng bảng: CCCD, Tên, SĐT, Link Zalo, Trạng thái, Link để dán trực tiếp vào Excel" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-              Sao Chép Toàn Bộ Link
+              Sao Chép Kèm SĐT
+            </button>
+            <button onclick="copyBulkZaloMessages()" title="Sao chép toàn bộ tin nhắn Zalo kèm link ký cho những người chưa hoàn thành" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+              Sao Chép Tin Zalo
+            </button>
+            <button onclick="copyOnlyLinks()" title="Chỉ sao chép danh sách URL link ký" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+              Chỉ Chép Link
             </button>
           </div>
         </div>
@@ -244,11 +256,12 @@
                 <th class="py-3 px-4 w-12 text-center">STT</th>
                 <th class="py-3 px-4">Số CCCD</th>
                 <th class="py-3 px-4">Họ và Tên NLĐ</th>
+                <th class="py-3 px-4">Số ĐT & Zalo</th>
                 <th class="py-3 px-4">Đợt / Lô Ký</th>
                 <th class="py-3 px-4 text-center">Tiến Độ Ký (Lịch Sử)</th>
                 <th class="py-3 px-4">Tên Hợp Đồng</th>
                 <th class="py-3 px-4">Link Ký Hợp Đồng</th>
-                <th class="py-3 px-4 text-center w-28">Thao Tác</th>
+                <th class="py-3 px-4 text-center w-36">Thao Tác</th>
               </tr>
             </thead>
             <tbody id="results-table-body" class="divide-y divide-slate-100 font-medium"></tbody>
@@ -286,6 +299,41 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             <span>Phân Tích & Cập Nhật Tự Động</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Card Cập nhật cURL Agency Portal (Lấy SĐT & Zalo) -->
+      <div class="bg-white rounded-2xl border border-blue-200 p-6 sm:p-8 shadow-sm">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-slate-900">Cấu Hình Agency Portal (Lấy SĐT & Mở Zalo Tự Động)</h3>
+            <p class="text-sm text-slate-500 mt-1">Hệ thống tự động dùng API của Agency Portal để tìm số điện thoại của NLĐ theo số CCCD và tạo link chat Zalo trực tiếp.</p>
+          </div>
+        </div>
+
+        <div class="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
+          <p class="font-semibold text-slate-700">Khi cookie Agency Portal hết hạn, bạn chỉ cần:</p>
+          <p>1. Mở trang <code class="text-blue-600 font-mono">logistics.myagencyservice.vn</code> -> Nhấn <kbd class="px-1.5 py-0.5 bg-white border border-slate-300 rounded font-mono">F12</kbd> -> Chọn tab <strong>Network (Mạng)</strong>.</p>
+          <p>2. Lọc request tên <code class="text-blue-600 font-mono">ops/list</code> hoặc bất kỳ request nào trên trang đó.</p>
+          <p>3. Chuột phải -> <strong>Copy</strong> -> <strong>Copy as cURL (bash)</strong> -> Dán vào bên dưới và bấm nút lưu.</p>
+        </div>
+
+        <div class="mt-4 space-y-3">
+          <textarea id="agency-curl-textarea" rows="3" placeholder="Dán lệnh curl --url 'https://logistics.myagencyservice.vn/...' vào đây..."
+                    class="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+          <div class="flex flex-wrap items-center gap-3">
+            <button onclick="parseAndApplyAgencyCurl()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl text-sm transition shadow-sm flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+              <span>Cập Nhật Cookie Agency Portal</span>
+            </button>
+            <button type="button" onclick="testAgencyConnection()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-sm transition border border-slate-300">
+              Kiểm Tra Cookie Agency
+            </button>
+            <div id="agency-status-badge"></div>
+          </div>
         </div>
       </div>
 
@@ -399,8 +447,34 @@
         document.getElementById('cfg-tenant-id').value = currentConfig.tenant_id || '';
         const statusFilter = currentConfig.status_filter || [];
         document.getElementById('cfg-status-filter').value = statusFilter.length > 0 ? 'waiting' : 'all';
+
+        const badge = document.getElementById('agency-status-badge');
+        if (badge) {
+          if (currentConfig.agency_portal && currentConfig.agency_portal.cookie) {
+            const cookieSnippet = currentConfig.agency_portal.cookie.substring(0, 35) + '...';
+            badge.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300">✅ Đã có Cookie (${cookieSnippet})</span>`;
+          } else {
+            badge.innerHTML = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">⚠️ Chưa có Cookie Agency</span>`;
+          }
+        }
       } catch (err) {
         console.error('Lỗi nạp config:', err);
+      }
+    }
+
+    async function testAgencyConnection() {
+      try {
+        const res = await fetch('/api/test-agency-connection', { method: 'POST' });
+        const textResp = await res.text();
+        let data = {};
+        try { data = JSON.parse(textResp); } catch(e) {}
+        if (data.success) {
+          showToast(data.message || 'Kết nối Agency Portal thành công!', 'success');
+        } else {
+          showToast(data.message || 'Cookie Agency Portal có thể đã hết hạn', 'warning');
+        }
+      } catch (err) {
+        showToast('Lỗi kiểm tra kết nối: ' + err.message, 'error');
       }
     }
 
@@ -473,17 +547,106 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ curl: curlText })
         });
-        const data = await res.json();
+        const textResp = await res.text();
+        let data = {};
+        try { data = JSON.parse(textResp); } catch(e) {}
+
         if (data.success) {
           showToast('Phân tích cURL thành công! Đã lưu cấu hình mới.', 'success');
           loadConfig();
           testConnection();
           document.getElementById('curl-textarea').value = '';
         } else {
-          showToast('Không thể trích xuất thông tin: ' + data.message, 'error');
+          showToast('Không thể trích xuất thông tin: ' + (data.message || 'Lỗi xử lý cURL'), 'error');
         }
       } catch (err) {
-        showToast('Lỗi phân tích cURL', 'error');
+        showToast('Lỗi phân tích cURL: ' + err.message, 'error');
+      }
+    }
+
+    async function parseAndApplyAgencyCurl() {
+      const curlText = document.getElementById('agency-curl-textarea').value.trim();
+      if (!curlText) {
+        showToast('Vui lòng dán lệnh cURL từ Agency Portal trước', 'warning');
+        return;
+      }
+
+      // Trích xuất trực tiếp trên client để luôn có dữ liệu dự phòng
+      let extractedCookie = '';
+      let extractedDevice = '';
+      const cMatch = curlText.match(/(?:-b|--cookie)\s+['"]([^'"]+)['"]/) || 
+                     curlText.match(/-H\s+['"][Cc]ookie:\s*([^'"]+)['"]/) ||
+                     curlText.match(/([_A-Za-z0-9]+=[^;\r\n]+;(?:\s*[_A-Za-z0-9]+=[^;\r\n]+;?)+)/);
+      if (cMatch) extractedCookie = cMatch[1];
+      const dMatch = curlText.match(/-H\s+['"]device-id:\s*([^'"]+)['"]/i) || curlText.match(/device-id:\s*([a-zA-Z0-9_\-]+)/i);
+      if (dMatch) extractedDevice = dMatch[1];
+
+      try {
+        const res = await fetch('/api/parse-agency-curl', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curl: curlText })
+        });
+        
+        let data = null;
+        const textResp = await res.text();
+        if (textResp) {
+          try { data = JSON.parse(textResp); } catch(e) {}
+        }
+
+        if (data && data.success) {
+          showToast(data.message || 'Cập nhật Cookie Agency Portal thành công!', 'success');
+          document.getElementById('agency-curl-textarea').value = '';
+          loadConfig();
+          return;
+        }
+
+        // Nếu endpoint parse-agency-curl không xử lý được, lưu trực tiếp qua /api/config
+        if (extractedCookie) {
+          const cfgRes = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agency_portal: {
+                cookie: extractedCookie,
+                device_id: extractedDevice || '1e483b648ab3801d54d28320c7c0e85b',
+                enabled: true
+              }
+            })
+          });
+          const textCfg = await cfgRes.text();
+          let cfgData = {};
+          try { cfgData = JSON.parse(textCfg); } catch(e) {}
+          if (cfgData.success) {
+            showToast('Đã trích xuất và cập nhật Cookie Agency Portal thành công!', 'success');
+            document.getElementById('agency-curl-textarea').value = '';
+            loadConfig();
+            return;
+          }
+        }
+
+        showToast(data?.message || 'Không tìm thấy Cookie hợp lệ trong đoạn cURL vừa dán.', 'error');
+      } catch (err) {
+        if (extractedCookie) {
+          try {
+            await fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                agency_portal: {
+                  cookie: extractedCookie,
+                  device_id: extractedDevice || '1e483b648ab3801d54d28320c7c0e85b',
+                  enabled: true
+                }
+              })
+            });
+            showToast('Đã lưu Cookie Agency Portal thành công!', 'success');
+            document.getElementById('agency-curl-textarea').value = '';
+            loadConfig();
+            return;
+          } catch(e) {}
+        }
+        showToast('Lỗi: ' + err.message, 'error');
       }
     }
 
@@ -537,7 +700,11 @@
                     ${stateBadge}
                   </div>
                   <h3 class="text-xl font-bold text-slate-900">${data.worker_name}</h3>
-                  <p class="text-sm font-medium text-slate-600 mt-1">CCCD: <span class="font-mono font-bold text-blue-700">${data.cccd}</span> | Chức vụ: ${data.job_position || 'Người lao động'}</p>
+                  <p class="text-sm font-medium text-slate-600 mt-1">
+                    CCCD: <span class="font-mono font-bold text-blue-700">${data.cccd}</span>
+                    ${data.phone ? ` | SĐT: <span class="font-mono font-bold text-emerald-700">${data.phone}</span> <span class="text-xs text-slate-400">(${data.ops_id || 'Agency'})</span>` : ''}
+                    | Chức vụ: ${data.job_position || 'Người lao động'}
+                  </p>
                 </div>
                 <div class="text-right">
                   <span class="text-xs text-slate-500">Trạng thái hợp đồng</span>
@@ -564,6 +731,16 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
                     Sao Chép Link Ký
                   </button>
+                  ${data.phone ? `
+                    <a href="${data.zalo_link || `https://zalo.me/${data.phone}`}" target="_blank" class="px-5 py-2.5 bg-[#0068FF] hover:bg-blue-600 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                      <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.145 2 11.258c0 2.87 1.42 5.438 3.655 7.073V22l3.498-1.921c.905.251 1.861.387 2.847.387 5.523 0 10-4.145 10-9.258C22 6.145 17.523 2 12 2z"/></svg>
+                      Mở Zalo (${data.phone})
+                    </a>
+                    <button onclick="copyZaloMessage('${data.worker_name}', '${data.phone}', '${data.sign_link}')" class="px-4 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                      Sao Chép Tin Zalo
+                    </button>
+                  ` : ''}
                   <a href="${data.sign_link}" target="_blank" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
                     Mở Liên Kết
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
@@ -571,6 +748,10 @@
                   <button onclick="openHistoryModal('${data.doc_id}', '${data.worker_name}', '${data.cccd}')" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     Xem Lịch Sử Ký
+                  </button>
+                  <button onclick="resendContractSingle('${data.doc_id}', '${data.worker_name}')" class="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    Gửi Lại Hợp Đồng
                   </button>
                 </div>
               </div>
@@ -926,6 +1107,18 @@
         `;
       }
 
+      const phoneCell = item.phone ? `
+        <div class="flex items-center gap-1.5">
+          <span class="font-mono font-bold text-slate-900">${item.phone}</span>
+          <a href="${item.zalo_link || `https://zalo.me/${item.phone}`}" target="_blank" title="Mở chat Zalo với ${item.phone}" class="p-1 text-blue-600 hover:bg-blue-50 rounded transition inline-flex items-center">
+            <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.145 2 11.258c0 2.87 1.42 5.438 3.655 7.073V22l3.498-1.921c.905.251 1.861.387 2.847.387 5.523 0 10-4.145 10-9.258C22 6.145 17.523 2 12 2z"/></svg>
+          </a>
+          <button onclick="copyZaloMessage('${item.worker_name || ''}', '${item.phone}', '${item.sign_link}')" title="Sao chép tin nhắn Zalo kèm link ký" class="p-1 text-cyan-700 hover:bg-cyan-50 rounded transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          </button>
+        </div>
+      ` : '<span class="text-slate-400 italic">Chưa có</span>';
+
       const actionBtn = item.status === 'success' ? `
         <div class="flex items-center justify-center gap-1">
           <button onclick="copyToClipboard('${item.sign_link}')" title="Sao chép link ký" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition">
@@ -937,6 +1130,11 @@
           <button onclick="openHistoryModal('${item.doc_id}', '${item.worker_name}', '${item.cccd}')" title="Xem lịch sử ký chi tiết" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           </button>
+          ${item.signing_state !== 'Đã hoàn thành' ? `
+            <button onclick="resendContractSingle('${item.doc_id}', '${item.worker_name || item.cccd}')" title="Gửi lại hợp đồng/thông báo ký cho NLĐ" class="p-1.5 text-violet-600 hover:bg-violet-50 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            </button>
+          ` : ''}
         </div>
       ` : '-';
 
@@ -944,6 +1142,7 @@
         <td class="py-3 px-4 text-center text-slate-400 font-mono">${stt}</td>
         <td class="py-3 px-4 font-mono font-semibold text-slate-800">${item.cccd}</td>
         <td class="py-3 px-4 font-semibold text-slate-900">${item.worker_name || '-'}</td>
+        <td class="py-3 px-4">${phoneCell}</td>
         <td class="py-3 px-4 text-blue-700 font-medium">${item.batch_name || '-'}</td>
         <td class="py-3 px-4 text-center">${signingBadge}</td>
         <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${item.doc_name || ''}">${item.doc_name || '-'}</td>
@@ -996,16 +1195,191 @@
       }
     }
 
-    // Copy All Links
+    // ================= CLIPBOARD & COPY FUNCTIONS =================
+    // Hàm sao chép đa nền tảng, tương thích cả HTTPS và HTTP thông qua fallback execCommand
+    function copyToClipboard(text, customToastMsg) {
+      if (!text) {
+        showToast('Không có nội dung để sao chép', 'warning');
+        return;
+      }
+
+      const msg = customToastMsg || 'Đã sao chép vào bộ nhớ tạm!';
+
+      function fallbackCopy(str) {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = str;
+          textarea.style.position = 'fixed';
+          textarea.style.top = '-9999px';
+          textarea.style.left = '-9999px';
+          textarea.style.opacity = '0';
+          textarea.setAttribute('readonly', '');
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (ok) {
+            showToast(msg, 'success');
+          } else {
+            showToast('Trình duyệt chặn sao chép tự động, vui lòng chọn và chép thủ công.', 'error');
+          }
+        } catch (err) {
+          console.error('Fallback copy error:', err);
+          showToast('Lỗi khi sao chép vào bộ nhớ tạm', 'error');
+        }
+      }
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(msg, 'success');
+        }).catch(err => {
+          console.warn('navigator.clipboard failed, fallback to execCommand:', err);
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    // Sao chép toàn bộ kết quả dạng bảng: CCCD | Họ tên | Tiến độ | Đợt ký | Link (Dán đẹp vào Excel/Sheets)
     function copyAllLinks() {
-      const validLinks = bulkResults.filter(r => r.status === 'success' && r.sign_link);
+      const filter = document.getElementById('results-filter') ? document.getElementById('results-filter').value : 'all';
+      let validLinks = bulkResults.filter(r => r.status === 'success' && r.sign_link);
+
+      // Nếu đang lọc kết quả thì ưu tiên sao chép những dòng đang hiển thị
+      if (filter !== 'all') {
+        if (filter === 'completed') validLinks = validLinks.filter(r => r.signing_state === 'Đã hoàn thành');
+        else if (filter === 'signed') validLinks = validLinks.filter(r => r.signing_state === 'NLĐ đã ký');
+        else if (filter === 'viewed') validLinks = validLinks.filter(r => r.signing_state === 'Đã xem (Chưa ký)');
+        else if (filter === 'not_viewed') validLinks = validLinks.filter(r => r.signing_state === 'Chưa xem');
+      }
+
       if (!validLinks.length) {
         showToast('Không có link ký hợp lệ để sao chép', 'warning');
         return;
       }
-      const lines = validLinks.map(r => `${r.cccd}\t${r.worker_name}\t${r.sign_link}`);
-      copyToClipboard(lines.join('\n'));
-      showToast(`Đã sao chép ${validLinks.length} link ký vào bộ nhớ tạm!`, 'success');
+
+      const lines = validLinks.map(r => `${r.cccd}\t${r.worker_name || ''}\t${r.phone || ''}\t${r.zalo_link || ''}\t${r.signing_state || '-'}\t${r.batch_name || '-'}\t${r.sign_link}`);
+      copyToClipboard(lines.join('\n'), `Đã sao chép toàn bộ ${validLinks.length} kết quả (kèm SĐT) vào bộ nhớ tạm!`);
+    }
+
+    // Chỉ sao chép danh sách URL link ký thuần túy (mỗi link 1 dòng)
+    function copyOnlyLinks() {
+      const filter = document.getElementById('results-filter') ? document.getElementById('results-filter').value : 'all';
+      let validLinks = bulkResults.filter(r => r.status === 'success' && r.sign_link);
+
+      if (filter !== 'all') {
+        if (filter === 'completed') validLinks = validLinks.filter(r => r.signing_state === 'Đã hoàn thành');
+        else if (filter === 'signed') validLinks = validLinks.filter(r => r.signing_state === 'NLĐ đã ký');
+        else if (filter === 'viewed') validLinks = validLinks.filter(r => r.signing_state === 'Đã xem (Chưa ký)');
+        else if (filter === 'not_viewed') validLinks = validLinks.filter(r => r.signing_state === 'Chưa xem');
+      }
+
+      if (!validLinks.length) {
+        showToast('Không có link ký hợp lệ để sao chép', 'warning');
+        return;
+      }
+
+      const lines = validLinks.map(r => r.sign_link);
+      copyToClipboard(lines.join('\n'), `Đã sao chép ${validLinks.length} link ký URL vào bộ nhớ tạm!`);
+    }
+
+    // ================= ZALO MESSAGES FUNCTIONS =================
+    // Sao chép tin nhắn Zalo kèm link ký cho 1 NLĐ
+    function copyZaloMessage(workerName, phone, signLink) {
+      if (!signLink) {
+        showToast('Không có link ký để tạo tin nhắn Zalo', 'warning');
+        return;
+      }
+      const msg = `Chào ${workerName || 'anh/chị'},\nCông ty gửi anh/chị đường link ký hợp đồng lao động điện tử trên AMIS WeSign:\n👉 ${signLink}\nAnh/chị vui lòng bấm vào link trên để kiểm tra và hoàn thành ký giúp mình nhé!`;
+      copyToClipboard(msg, `Đã sao chép tin nhắn Zalo cho ${workerName || phone}!`);
+    }
+
+    // Sao chép tin nhắn Zalo hàng loạt cho toàn bộ NLĐ chưa hoàn thành
+    function copyBulkZaloMessages() {
+      const filter = document.getElementById('results-filter') ? document.getElementById('results-filter').value : 'all';
+      let pendingList = bulkResults.filter(r => r.status === 'success' && r.sign_link && r.signing_state !== 'Đã hoàn thành');
+
+      if (filter !== 'all') {
+        if (filter === 'signed') pendingList = pendingList.filter(r => r.signing_state === 'NLĐ đã ký');
+        else if (filter === 'viewed') pendingList = pendingList.filter(r => r.signing_state === 'Đã xem (Chưa ký)');
+        else if (filter === 'not_viewed') pendingList = pendingList.filter(r => r.signing_state === 'Chưa xem');
+      }
+
+      if (!pendingList.length) {
+        showToast('Không có NLĐ nào chưa ký để tạo tin nhắn Zalo', 'warning');
+        return;
+      }
+
+      const msgs = pendingList.map(r => {
+        const phoneInfo = r.phone ? ` (SĐT: ${r.phone} - Zalo: https://zalo.me/${r.phone})` : '';
+        return `--- Gửi cho: ${r.worker_name || r.cccd}${phoneInfo} ---\nChào ${r.worker_name || 'anh/chị'},\nCông ty gửi anh/chị link ký hợp đồng lao động điện tử trên AMIS WeSign:\n👉 ${r.sign_link}\nAnh/chị bấm vào link để kiểm tra và ký giúp mình nhé!\n`;
+      });
+
+      copyToClipboard(msgs.join('\n'), `Đã sao chép danh sách tin nhắn Zalo của ${pendingList.length} NLĐ vào bộ nhớ tạm!`);
+    }
+
+    // ================= RESEND CONTRACT FUNCTIONS =================
+    // Gửi lại hợp đồng cho 1 người lao động
+    async function resendContractSingle(docId, workerName) {
+      if (!docId) {
+        showToast('Không tìm thấy Document ID để gửi lại', 'error');
+        return;
+      }
+      if (!confirm(`Bạn có chắc chắn muốn gửi lại thông báo/email mời ký hợp đồng cho "${workerName || 'người lao động'}" qua AMIS WeSign?`)) {
+        return;
+      }
+
+      showToast(`Đang gửi lại hợp đồng cho ${workerName || 'NLĐ'}...`, 'info');
+      try {
+        const res = await fetch('/api/resend-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc_id: docId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Đã gửi lại hợp đồng thành công cho ${workerName || 'NLĐ'}!`, 'success');
+        } else {
+          showToast(data.message || 'Không thể gửi lại hợp đồng', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi kết nối khi gửi lại hợp đồng', 'error');
+      }
+    }
+
+    // Gửi lại hợp đồng hàng loạt cho toàn bộ NLĐ chưa hoàn thành
+    async function resendContractBulk() {
+      // Lọc các hợp đồng thành công và chưa hoàn thành ký
+      const pendingList = bulkResults.filter(r => r.status === 'success' && r.doc_id && r.signing_state !== 'Đã hoàn thành');
+      if (!pendingList.length) {
+        showToast('Không có người lao động nào chưa hoàn thành ký để gửi lại.', 'warning');
+        return;
+      }
+
+      if (!confirm(`Hệ thống tìm thấy ${pendingList.length} người lao động chưa hoàn thành ký.\n\nBạn có chắc muốn GỬI LẠI thông báo ký cho toàn bộ ${pendingList.length} người này qua AMIS WeSign?`)) {
+        return;
+      }
+
+      const docIds = pendingList.map(r => r.doc_id);
+      showToast(`Đang gửi lại thông báo ký cho ${docIds.length} người lao động...`, 'info');
+
+      try {
+        const res = await fetch('/api/resend-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc_ids: docIds })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Đã gửi lại hợp đồng thành công cho toàn bộ ${docIds.length} NLĐ!`, 'success');
+        } else {
+          showToast(data.message || 'Lỗi khi gửi lại hợp đồng hàng loạt', 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi kết nối khi gửi lại hợp đồng', 'error');
+      }
     }
 
     // Modal Lịch Sử Ký Chi Tiết

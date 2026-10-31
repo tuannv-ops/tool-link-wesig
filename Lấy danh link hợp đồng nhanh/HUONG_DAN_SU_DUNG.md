@@ -58,6 +58,10 @@ Có 2 phương thức nhập dữ liệu:
 - **Xem chi tiết lịch sử:** Bấm vào biểu tượng đồng hồ **🕒** trên mỗi dòng để xem dòng thời gian chi tiết (Ai gửi, ai xem lúc nào, ai ký lúc nào).
 - **File Excel xuất ra:** Tự động kèm đầy đủ các cột: *Tiến độ ký, Thời gian NLĐ ký, Thời gian hoàn tất, Thời gian NLĐ xem*.
 
+### 4. Gửi Lại Hợp Đồng Cho NLĐ (Resend Contract - Mới)
+- **Gửi lại đơn lẻ:** Tại kết quả tra cứu của từng người hoặc cột thao tác trên bảng kết quả, bấm nút **"📨 Gửi Lại Hợp Đồng"** để hệ thống gọi thẳng API WeSign gửi lại email/thông báo mời ký cho NLĐ đó.
+- **Gửi lại hàng loạt:** Trên thanh công cụ, bấm nút **"📨 Gửi Lại Cho NLĐ Chưa Ký"**, hệ thống sẽ tự động lọc toàn bộ những người chưa ký (`Chưa xem`, `Đã xem (Chưa ký)`) và gửi lại đồng loạt chỉ bằng 1 cú nhấp chuột!
+
 ---
 
 ## 4. CÁCH CẬP NHẬT TOKEN & COOKIE KHI HẾT HẠN
