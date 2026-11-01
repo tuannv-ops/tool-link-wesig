@@ -89,6 +89,7 @@ class WeSignClient:
         self.config = self.load_config()
         self.cached_batches = []
         self.batches_cache_time = 0
+        self.last_api_status = 200
         self.contracts_cache = {}  # cccd -> doc info
         self.contracts_cache_time = 0
         self.agency_client = AgencyClient(self.config_path)
@@ -182,16 +183,22 @@ class WeSignClient:
 
         try:
             res = requests.post(url, headers=headers, cookies=cookies, json=body, timeout=12)
+            self.last_api_status = res.status_code
             if res.status_code == 200:
                 self.cached_batches = res.json().get('data') or []
                 self.batches_cache_time = now
                 return self.cached_batches
+            else:
+                self.cached_batches = []
         except Exception as e:
+            self.last_api_status = 0
             print(f"[!] Lỗi get_all_batches: {e}")
 
-        default_batch_id = self.config.get('document_batch_id')
-        if default_batch_id:
-            return [{"id": default_batch_id, "name": "Đợt mặc định"}]
+        # Chỉ fallback nếu KHÔNG phải lỗi xác thực (401/403)
+        if self.last_api_status not in [401, 403]:
+            default_batch_id = self.config.get('document_batch_id')
+            if default_batch_id:
+                return [{"id": default_batch_id, "name": "Đợt mặc định"}]
         return []
 
     def sync_all_contracts(self, force=False):
@@ -270,7 +277,14 @@ class WeSignClient:
 
     def test_connection(self):
         batches = self.get_all_batches(force_refresh=True)
-        if batches:
+        if self.last_api_status in [401, 403]:
+            return {
+                "success": False,
+                "message": "Token WeSign đã hết hạn (HTTP 401). Vui lòng copy cURL mới từ WeSign và dán vào tab Cấu hình.",
+                "batchName": "Token đã hết hạn",
+                "total": 0
+            }
+        if batches and self.last_api_status == 200:
             total = len(batches)
             first_name = batches[0].get('name', 'Đợt tài liệu WeSign')
             return {
@@ -279,7 +293,12 @@ class WeSignClient:
                 "batchName": f"Tất cả {total} đợt tài liệu",
                 "total": total
             }
-        return {"success": False, "message": "Không thể kết nối hoặc Token/Cookie đã hết hạn"}
+        return {
+            "success": False,
+            "message": f"Không thể kết nối hoặc Token/Cookie đã hết hạn (Mã: {self.last_api_status})",
+            "batchName": "Mất kết nối",
+            "total": 0
+        }
 
     def _extract_worker_participant(self, participants, doc_name):
         if not participants:
