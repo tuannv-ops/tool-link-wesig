@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "WeSign Auto Sync - Tự Động Đồng Bộ Token MISA",
+  "version": "1.0.0",
+  "description": "Tự động bắt Token và Cookie khi bạn đăng nhập MISA WeSign và đồng bộ thẳng vào Tool lấy link hợp đồng.",
+  "permissions": [
+    "webRequest",
+    "cookies",
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "*://amisapp.misa.vn/*",
+    "*://*.misa.vn/*",
+    "https://tool-link-wesig.onrender.com/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WeSign Auto Sync",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

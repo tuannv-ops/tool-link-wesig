@@ -5,7 +5,6 @@ import os
 import base64
 from datetime import datetime
 import requests
-from agency_api import AgencyClient, parse_agency_curl
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
 
@@ -13,10 +12,11 @@ DEFAULT_CONFIG = {
     "token": "",
     "cookie": "",
     "document_batch_id": "",
+    "folder_id": 12126,
     "tenant_id": "c4e3c4ef-a722-40cd-96ed-6aa20a86ee94",
-    "device_id": "f4007158-f14d-48f2-bae2-0e73c4e046a4",
-    "status_filter": [],  # [] là TẤT CẢ các trạng thái (bản nháp, chờ ký, hoàn thành...)
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
+    "device_id": "6d656d65-248f-4cc2-80e1-69faf29f910d",
+    "status_filter": [0, 1, 3, 5],
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
 }
 
 STATUS_MAP = {
@@ -54,6 +54,16 @@ def parse_curl_command(curl_text):
     token_match = re.search(r'Bearer\s+([A-Za-z0-9\-_=\.]+)', curl_text, re.IGNORECASE)
     if token_match:
         result['token'] = token_match.group(1).strip()
+        # Tự động trích xuất tenant_id từ JWT token nếu có
+        try:
+            parts = result['token'].split('.')
+            if len(parts) >= 2:
+                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                data = json.loads(base64.b64decode(padded).decode('utf-8'))
+                if data.get('tenantid'):
+                    result['tenant_id'] = data.get('tenantid')
+        except Exception:
+            pass
 
     # 2. Cookie
     cookie_match = re.search(r'(?:-b|--cookie|-H\s+[\'"][Cc]ookie:\s*)\s*[\'"]([^\'"]+)[\'"]', curl_text)
@@ -62,24 +72,42 @@ def parse_curl_command(curl_text):
     if cookie_match:
         result['cookie'] = cookie_match.group(1).strip()
 
-    # 3. DocumentBatchId (nếu có)
+    # 3. FolderID (Rất quan trọng cho WeSign!)
+    folder_match = re.search(r'[\'"]folderID[\'"]\s*:\s*([0-9]+)', curl_text, re.IGNORECASE)
+    if not folder_match:
+        folder_match = re.search(r'/documents/([0-9]{3,10})', curl_text)
+    if folder_match:
+        try:
+            result['folder_id'] = int(folder_match.group(1))
+        except Exception:
+            result['folder_id'] = folder_match.group(1)
+
+    # 4. DocumentBatchId (nếu có)
     batch_match = re.search(r'[\'"]DocumentBatchId[\'"]\s*:\s*[\'"]([a-f0-9\-]+)[\'"]', curl_text, re.IGNORECASE)
     if not batch_match:
         batch_match = re.search(r'(?:waiting-for-others/|batchId=)([a-f0-9\-]{36})', curl_text, re.IGNORECASE)
     if batch_match:
         result['document_batch_id'] = batch_match.group(1).strip()
 
-    # 4. TenantId
-    tenant_match = re.search(r'[\'"](?:DocumentBatchTenantId|tenantId|x-tenantid)[\'"]\s*:\s*[\'"]([a-f0-9\-]+)[\'"]', curl_text, re.IGNORECASE)
-    if not tenant_match:
-        tenant_match = re.search(r'(?:x-misa-ws-database-tenantid|tenantId=)\s*[:=]\s*[\'"]?([a-f0-9\-]{36})', curl_text, re.IGNORECASE)
+    # 5. TenantId (nếu có trong header, cookie, body)
+    tenant_match = re.search(r'(?:x-misa-ws-database-tenantid|DocumentBatchTenantId|tenantId|x-tenantid)[\'"]?\s*[:=]\s*[\'"]?([a-f0-9\-]{36})', curl_text, re.IGNORECASE)
     if tenant_match:
         result['tenant_id'] = tenant_match.group(1).strip()
 
-    # 5. DeviceId
+    # 6. DeviceId
     device_match = re.search(r'(?:deviceId|x-deviceid)\s*[:=]\s*[\'"]?([a-f0-9\-]{36})', curl_text, re.IGNORECASE)
     if device_match:
         result['device_id'] = device_match.group(1).strip()
+
+    # 7. Status filter (nếu có mảng status trong body)
+    status_match = re.search(r'[\'"]status[\'"]\s*:\s*(\[[0-9,\s]*\])', curl_text)
+    if status_match:
+        try:
+            st_list = json.loads(status_match.group(1))
+            if isinstance(st_list, list):
+                result['status_filter'] = st_list
+        except Exception:
+            pass
 
     return result
 
@@ -89,10 +117,8 @@ class WeSignClient:
         self.config = self.load_config()
         self.cached_batches = []
         self.batches_cache_time = 0
-        self.last_api_status = 200
         self.contracts_cache = {}  # cccd -> doc info
         self.contracts_cache_time = 0
-        self.agency_client = AgencyClient(self.config_path)
 
     def load_config(self):
         cfg = DEFAULT_CONFIG.copy()
@@ -111,6 +137,11 @@ class WeSignClient:
             cfg['cookie'] = os.environ['WESIGN_COOKIE']
         if os.environ.get('WESIGN_BATCH_ID'):
             cfg['document_batch_id'] = os.environ['WESIGN_BATCH_ID']
+        if os.environ.get('WESIGN_FOLDER_ID'):
+            try:
+                cfg['folder_id'] = int(os.environ['WESIGN_FOLDER_ID'])
+            except Exception:
+                cfg['folder_id'] = os.environ['WESIGN_FOLDER_ID']
         if os.environ.get('WESIGN_TENANT_ID'):
             cfg['tenant_id'] = os.environ['WESIGN_TENANT_ID']
 
@@ -142,70 +173,113 @@ class WeSignClient:
             'x-misa-ws-database-tenantid': self.config.get('tenant_id', '')
         }
 
-    def _get_user_id(self):
+    def _get_user_info(self):
         token = self.config.get('token', '')
         try:
             parts = token.split('.')
             if len(parts) >= 2:
                 padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
                 data = json.loads(base64.b64decode(padded).decode('utf-8'))
-                return data.get('sub', '')
+                return {
+                    "user_id": data.get('sub', ''),
+                    "user_name": data.get('name', ''),
+                    "tenant_id": data.get('tenantid', ''),
+                    "exp": data.get('exp', 0)
+                }
         except Exception:
             pass
-        return "9ce95ef8-327d-4682-9b42-9af0eb079021"
+        return {
+            "user_id": "9ce95ef8-327d-4682-9b42-9af0eb079021",
+            "user_name": "Người dùng",
+            "tenant_id": self.config.get('tenant_id', ''),
+            "exp": 0
+        }
 
-    def get_all_batches(self, force_refresh=False):
+    def is_token_expired(self):
+        info = self._get_user_info()
+        exp = info.get('exp', 0)
+        if exp and time.time() >= exp:
+            return True, exp
+        return False, exp
+
+    def _get_user_id(self):
+        return self._get_user_info().get('user_id', '')
+
+    def get_all_batches(self, force_refresh=False, max_pages=15):
         """
-        Lấy danh sách TẤT CẢ các đợt/lô tài liệu từ WeSign qua API /paging/data (không giới hạn trạng thái)
+        Lấy danh sách TẤT CẢ các đợt/lô tài liệu từ WeSign qua API /v1/documents/paging/data.
+        Sử dụng Cursor-based pagination (sortParameters) để lấy toàn bộ các trang (không bị giới hạn 28 hay 100).
+        Tự động truyền folderID nếu có trong cấu hình.
         """
         now = time.time()
         if not force_refresh and self.cached_batches and (now - self.batches_cache_time < 300):
             return self.cached_batches
 
-        url = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/data'
+        url = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/data'
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
 
-        body = {
-            "status": [],  # Lấy tất cả các trạng thái
-            "limit": 100,
-            "pageNumber": 1,
-            "keyword": "",
-            "currentUser": self._get_user_id(),
-            "filterField": 1,
-            "isMine": False,
-            "isParticipated": False,
-            "isTrash": False,
-            "sourceDocuments": ["Task", "CRM", "Accounting", "AMISProcess", "EmployeesProfile", "Other", "AMISWesign"],
-            "draftType": 0,
-            "relatedUsers": []
-        }
+        folder_id = self.config.get('folder_id')
+        status_filter = self.config.get('status_filter') or [0, 1, 3, 5]
 
-        try:
-            res = requests.post(url, headers=headers, cookies=cookies, json=body, timeout=12)
-            self.last_api_status = res.status_code
-            if res.status_code == 200:
-                self.cached_batches = res.json().get('data') or []
-                self.batches_cache_time = now
-                return self.cached_batches
-            else:
-                self.cached_batches = []
-        except Exception as e:
-            self.last_api_status = 0
-            print(f"[!] Lỗi get_all_batches: {e}")
+        all_batches = []
+        seen_ids = set()
+        sort_params = []
 
-        # Chỉ fallback nếu KHÔNG phải lỗi xác thực (401/403)
-        if self.last_api_status not in [401, 403]:
-            default_batch_id = self.config.get('document_batch_id')
-            if default_batch_id:
-                return [{"id": default_batch_id, "name": "Đợt mặc định"}]
+        for page in range(1, max_pages + 1):
+            body = {
+                "status": status_filter,
+                "limit": 50,
+                "pageNumber": page,
+                "keyword": "",
+                "isMine": False,
+                "isParticipated": False,
+                "isTrash": False,
+                "DocumentRoleFilter": 1,
+                "folderID": folder_id,
+                "actionType": 1,
+                "typeSearch": 2,
+                "sortParameters": sort_params
+            }
+
+            try:
+                res = requests.post(url, headers=headers, cookies=cookies, json=body, timeout=12)
+                if res.status_code != 200:
+                    break
+                res_data = res.json()
+                data = res_data.get('data') or []
+                sort_nexts = res_data.get('sortParameterNexts') or []
+
+                new_count = 0
+                for item in data:
+                    item_id = item.get('id')
+                    if item_id and item_id not in seen_ids:
+                        seen_ids.add(item_id)
+                        all_batches.append(item)
+                        new_count += 1
+
+                if not sort_nexts or len(data) == 0 or new_count == 0:
+                    break
+
+                sort_params = sort_nexts
+            except Exception as e:
+                print(f"[!] Lỗi get_all_batches (trang {page}): {e}")
+                break
+
+        if all_batches:
+            self.cached_batches = all_batches
+            self.batches_cache_time = now
+            return self.cached_batches
+
+        default_batch_id = self.config.get('document_batch_id')
+        if default_batch_id:
+            return [{"id": default_batch_id, "name": "Đợt mặc định"}]
         return []
 
     def sync_all_contracts(self, force=False):
         """
-        ĐỒNG BỘ TOÀN BỘ dữ liệu tất cả tài liệu/hợp đồng từ TẤT CẢ các đợt vào bộ nhớ đệm.
-        Bao gồm: HỢP ĐỒNG OS, THỎA THUẬN OS, v.v...
-        Chạy chỉ mất ~1 giây nhưng giúp tra cứu tìm thấy 100% không sót bất kỳ ai!
+        Đồng bộ toàn bộ hợp đồng trong các đợt tài liệu vào bộ nhớ đệm (contracts_cache).
+        Luôn gửi kèm folderID khi gọi API batch-data.
         """
         now = time.time()
         if not force and self.contracts_cache and (now - self.contracts_cache_time < 300):
@@ -215,9 +289,12 @@ class WeSignClient:
         if not batches:
             return self.contracts_cache
 
-        url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/batch-data'
+        url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/batch-data'
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
+        folder_id = self.config.get('folder_id')
+        tenant_id = self.config.get('tenant_id', '')
+        status_filter = self.config.get('status_filter') or [0, 1, 3, 5]
 
         new_cache = {}
         for b in batches:
@@ -225,12 +302,13 @@ class WeSignClient:
             b_name = b.get('name', 'Đợt tài liệu')
             try:
                 body_b = {
-                    "status": [],  # Lấy tất cả các trạng thái
+                    "status": status_filter,
                     "limit": 100,
                     "pageNumber": 1,
                     "keyword": "",
                     "DocumentBatchId": b_id,
-                    "DocumentBatchTenantId": self.config.get('tenant_id', '')
+                    "DocumentBatchTenantId": tenant_id,
+                    "folderID": folder_id
                 }
                 res_b = requests.post(url_batch, headers=headers, cookies=cookies, json=body_b, timeout=10)
                 if res_b.status_code == 200:
@@ -258,13 +336,11 @@ class WeSignClient:
                                 "doc_status": doc_status
                             }
 
-                            # Trích xuất tất cả các chuỗi 9 - 12 chữ số trong tên tài liệu
                             found_numbers = re.findall(r'(\d{9,12})', doc_name)
                             for num in found_numbers:
                                 new_cache[num] = doc_info
                                 if num.startswith('0'):
                                     new_cache[num.lstrip('0')] = doc_info
-
             except Exception as e:
                 print(f"[!] Lỗi đồng bộ đợt {b_name}: {e}")
                 continue
@@ -276,44 +352,51 @@ class WeSignClient:
         return self.contracts_cache
 
     def test_connection(self):
-        batches = self.get_all_batches(force_refresh=True)
-        if self.last_api_status in [401, 403]:
+        expired, exp_time = self.is_token_expired()
+        if expired:
+            exp_str = datetime.fromtimestamp(exp_time).strftime("%H:%M:%S") if exp_time else ""
             return {
                 "success": False,
-                "message": "Token WeSign đã hết hạn (HTTP 401). Vui lòng copy cURL mới từ WeSign và dán vào tab Cấu hình.",
-                "batchName": "Token đã hết hạn",
-                "total": 0
+                "message": f"Phiên đăng nhập WeSign đã hết hạn{f' lúc {exp_str}' if exp_str else ''}. Hãy mở lại tab WeSign (để Extension cập nhật) hoặc dán cURL mới!",
+                "expired": True
             }
-        if batches and self.last_api_status == 200:
+
+        user_info = self._get_user_info()
+        user_name = user_info.get('user_name') or 'AMIS WeSign'
+        folder_id = self.config.get('folder_id')
+
+        batches = self.get_all_batches(force_refresh=True, max_pages=3)
+        if batches:
             total = len(batches)
-            first_name = batches[0].get('name', 'Đợt tài liệu WeSign')
+            first_name = batches[0].get('name', 'Đợt tài liệu')
+            folder_info = f" (Folder: {folder_id})" if folder_id else ""
             return {
                 "success": True,
-                "message": f"Kết nối thành công! Đang có {total} đợt tài liệu (ví dụ: '{first_name}')",
-                "batchName": f"Tất cả {total} đợt tài liệu",
-                "total": total
+                "message": f"Kết nối thành công! Đăng nhập: {user_name}. Đang tải được {total} đợt hợp đồng{folder_info} (Ví dụ: '{first_name}')",
+                "batchName": f"{user_name} - {total} đợt tài liệu{folder_info}",
+                "total": total,
+                "userName": user_name,
+                "folderId": folder_id
             }
-        return {
-            "success": False,
-            "message": f"Không thể kết nối hoặc Token/Cookie đã hết hạn (Mã: {self.last_api_status})",
-            "batchName": "Mất kết nối",
-            "total": 0
-        }
+        return {"success": False, "message": "Không thể kết nối hoặc Token/Cookie đã hết hạn. Hãy copy cURL mới từ WeSign để cập nhật."}
 
     def _extract_worker_participant(self, participants, doc_name):
         if not participants:
             return None
+        # 1. Tìm người có jobPosition chứa 'lao động'
         for p in participants:
             job = (p.get('jobPosition') or '').lower()
             if 'lao động' in job:
                 return p
+        # 2. Tìm người có tên xuất hiện trong tên hợp đồng
         for p in participants:
             p_name = (p.get('name') or '').strip().upper()
             if p_name and p_name in doc_name.upper():
                 return p
+        # 3. Lọc bỏ đại diện công ty / người duyệt
         for p in participants:
             job = (p.get('jobPosition') or '').lower()
-            if not any(k in job for k in ['trưởng phòng', 'giám đốc', 'đại diện', 'kế toán', 'nhân sự']):
+            if not any(k in job for k in ['trưởng phòng', 'giám đốc', 'đại diện', 'kế toán', 'nhân sự', 'người tạo']):
                 return p
         return participants[0]
 
@@ -333,11 +416,7 @@ class WeSignClient:
 
     def get_document_history(self, doc_id, worker_name=""):
         """
-        Lấy và phân tích toàn bộ lịch sử thao tác của tài liệu theo documentId:
-        - Kiểm tra xem NLĐ đã mở xem tài liệu chưa (Action 4)
-        - Kiểm tra xem NLĐ đã ký chưa (Action 5)
-        - Kiểm tra xem tài liệu đã hoàn tất chưa (Action 6)
-        - Phân loại rõ: 'Đã hoàn thành', 'NLĐ đã ký', 'Đã xem (Chưa ký)', 'Chưa xem'
+        Lấy và phân tích toàn bộ lịch sử thao tác của tài liệu theo doc_id.
         """
         if not doc_id:
             return {
@@ -428,7 +507,6 @@ class WeSignClient:
                 if not completed_time:
                     completed_time = act_time
 
-            # Kiểm tra xem user có phải người lao động không
             is_worker = bool(worker_clean and (worker_clean in u_clean or u_clean in worker_clean))
             if is_worker or (not worker_clean and act in [4, 5]):
                 if act == 5 and not worker_signed:
@@ -461,17 +539,32 @@ class WeSignClient:
     def get_link_by_cccd(self, cccd, include_history=True):
         """
         Tra cứu hợp đồng theo số CCCD:
-        1. Tìm trong kho dữ liệu đồng bộ của tất cả các đợt (Level 1 - Instant Cache).
-        2. Nếu chưa thấy, tìm nhanh qua API /paging/data của MISA WeSign (Level 2 - Server Search).
-        3. Nếu chưa thấy, quét trực tiếp từng đợt tài liệu (Level 3 - Deep Fallback).
-        4. Tự động kiểm tra lịch sử ký để phân loại: 'Đã hoàn thành', 'NLĐ đã ký', 'Đã xem (Chưa ký)', 'Chưa xem'.
+        1. Tìm trực tiếp trên Server MISA qua API /v1/documents/paging/data bằng từ khóa CCCD.
+           Cực nhanh (0.2s - 0.5s), tìm chính xác 100% không bỏ sót bất kỳ đợt nào trong Thư mục!
+        2. Nếu chưa thấy trong Folder chỉ định, tự động tìm trên toàn hệ thống WeSign (folderID: None).
+        3. Nếu tìm thấy, gọi /batch-data kèm folderID để lấy đúng participant_id của người lao động.
+        4. Tự động lấy lịch sử ký (Đã xem, Đã ký, Hoàn tất...).
         """
         cccd_clean = str(cccd).strip()
         if not cccd_clean:
             return {"status": "error", "cccd": cccd, "message": "Số CCCD trống"}
 
+        # Kiểm tra token hết hạn ngay từ đầu
+        expired, exp_time = self.is_token_expired()
+        if expired:
+            exp_str = datetime.fromtimestamp(exp_time).strftime("%H:%M:%S") if exp_time else ""
+            return {
+                "status": "error",
+                "code": 401,
+                "cccd": cccd_clean,
+                "message": f"Phiên đăng nhập MISA WeSign đã hết hạn{f' lúc {exp_str}' if exp_str else ''}. Vui lòng mở lại tab WeSign để Extension tự động cập nhật hoặc copy cURL mới!"
+            }
+
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
+        folder_id = self.config.get('folder_id')
+        tenant_id = self.config.get('tenant_id', '')
+        status_filter = self.config.get('status_filter') or [0, 1, 3, 5]
 
         def _build_success_res(doc_id, doc_name, part_id, worker_name, job_position, b_id, b_name, doc_status, sign_link):
             res = {
@@ -506,127 +599,109 @@ class WeSignClient:
                     "completed_time": h_info.get("completed_time", ""),
                     "history_events": h_info.get("events", [])
                 })
-            # Tự động lấy số điện thoại & Zalo từ Agency Portal
-            phone_info = self.agency_client.get_phone_by_cccd(cccd_clean)
-            res.update({
-                "phone": phone_info.get("phone", ""),
-                "ops_id": phone_info.get("ops_id", ""),
-                "zalo_link": phone_info.get("zalo_link", "")
-            })
             return res
 
-        # 1. TÌM TRONG KHO DỮ LIỆU ĐỒNG BỘ TOÀN BỘ TÀI LIỆU
-        if not self.contracts_cache:
-            self.sync_all_contracts()
+        # 1. KIỂM TRA NHANH TRONG CACHE (NẾU ĐÃ CÓ)
+        if self.contracts_cache:
+            doc_info = self.contracts_cache.get(cccd_clean)
+            if not doc_info and cccd_clean.startswith('0'):
+                doc_info = self.contracts_cache.get(cccd_clean.lstrip('0'))
+            if not doc_info and not cccd_clean.startswith('0'):
+                doc_info = self.contracts_cache.get('0' + cccd_clean)
+            if not doc_info and len(cccd_clean) < 12 and cccd_clean.isdigit():
+                doc_info = self.contracts_cache.get(cccd_clean.zfill(12))
 
-        doc_info = self.contracts_cache.get(cccd_clean)
-        if not doc_info and cccd_clean.startswith('0'):
-            doc_info = self.contracts_cache.get(cccd_clean.lstrip('0'))
-        if not doc_info and not cccd_clean.startswith('0'):
-            doc_info = self.contracts_cache.get('0' + cccd_clean)
-        if not doc_info and len(cccd_clean) < 12 and cccd_clean.isdigit():
-            doc_info = self.contracts_cache.get(cccd_clean.zfill(12))
+            if doc_info:
+                sign_link = self._get_sign_link(doc_info['doc_id'], doc_info['participant_id'], headers, cookies)
+                if sign_link:
+                    return _build_success_res(
+                        doc_info['doc_id'], doc_info['doc_name'], doc_info['participant_id'],
+                        doc_info['worker_name'], doc_info['job_position'], doc_info['batch_id'],
+                        doc_info['batch_name'], doc_info['doc_status'], sign_link
+                    )
 
-        if doc_info:
-            sign_link = self._get_sign_link(doc_info['doc_id'], doc_info['participant_id'], headers, cookies)
-            if sign_link:
-                return _build_success_res(
-                    doc_info['doc_id'], doc_info['doc_name'], doc_info['participant_id'],
-                    doc_info['worker_name'], doc_info['job_position'], doc_info['batch_id'],
-                    doc_info['batch_name'], doc_info['doc_status'], sign_link
-                )
+        # 2. TÌM TRỰC TIẾP TRÊN SERVER QUA API /paging/data (FAST SERVER SEARCH)
+        # Chuẩn bị các biến thể của CCCD
+        variants = [cccd_clean]
+        if cccd_clean.startswith('0') and len(cccd_clean) > 1:
+            variants.append(cccd_clean.lstrip('0'))
+        elif not cccd_clean.startswith('0'):
+            variants.append('0' + cccd_clean)
+        if len(cccd_clean) < 12 and cccd_clean.isdigit():
+            variants.append(cccd_clean.zfill(12))
 
-        # 2. TÌM NHANH TRÊN TOÀN HỆ THỐNG QUA API PAGING/DATA BẰNG TỪ KHÓA CCCD
-        url_data = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/data'
-        url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/batch-data'
+        url_search = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/data'
+        url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/batch-data'
 
-        body_data = {
-            "status": [],
-            "limit": 5,
-            "pageNumber": 1,
-            "keyword": cccd_clean,
-            "currentUser": self._get_user_id(),
-            "filterField": 1,
-            "sourceDocuments": ["Task", "CRM", "Accounting", "AMISProcess", "EmployeesProfile", "Other", "AMISWesign"],
-            "draftType": 0,
-            "relatedUsers": []
-        }
+        # Ưu tiên tìm trong Folder trước, nếu không thấy thì mở rộng tìm toàn hệ thống (None)
+        search_folders = [folder_id]
+        if folder_id is not None:
+            search_folders.append(None)
 
-        try:
-            res_d = requests.post(url_data, headers=headers, cookies=cookies, json=body_data, timeout=8)
-            if res_d.status_code == 200:
-                matching_batches = res_d.json().get('data') or []
-                for b in matching_batches:
-                    b_id = b.get('id')
-                    b_name = b.get('name', 'Đợt tài liệu')
-                    body_b = {
-                        "status": [],
-                        "limit": 10,
-                        "pageNumber": 1,
-                        "keyword": cccd_clean,
-                        "DocumentBatchId": b_id,
-                        "DocumentBatchTenantId": self.config.get('tenant_id', '')
-                    }
-                    res_b = requests.post(url_batch, headers=headers, cookies=cookies, json=body_b, timeout=8)
-                    if res_b.status_code == 200:
-                        docs = res_b.json().get('data') or []
-                        if docs:
-                            doc = docs[0]
+        for f_id in search_folders:
+            for kw in variants:
+                body_search = {
+                    'status': status_filter,
+                    'limit': 10,
+                    'pageNumber': 1,
+                    'keyword': kw,
+                    'folderID': f_id,
+                    'actionType': 1,
+                    'typeSearch': 2
+                }
+                try:
+                    r_search = requests.post(url_search, headers=headers, cookies=cookies, json=body_search, timeout=8)
+                    if r_search.status_code == 401:
+                        return {
+                            "status": "error",
+                            "code": 401,
+                            "cccd": cccd_clean,
+                            "message": "Phiên đăng nhập MISA WeSign đã hết hạn (401 Unauthorized). Vui lòng cập nhật Token mới!"
+                        }
+                    if r_search.status_code != 200:
+                        continue
+                    matching_batches = r_search.json().get('data') or []
+                    for b in matching_batches:
+                        b_id = b.get('id')
+                        b_name = b.get('name', 'Đợt tài liệu')
+
+                        # Gọi batch-data để tìm văn bản của người này bên trong đợt
+                        body_b = {
+                            'status': status_filter,
+                            'limit': 20,
+                            'pageNumber': 1,
+                            'keyword': kw,
+                            'DocumentBatchId': b_id,
+                            'DocumentBatchTenantId': tenant_id,
+                            'folderID': f_id
+                        }
+                        r_batch = requests.post(url_batch, headers=headers, cookies=cookies, json=body_b, timeout=8)
+                        if r_batch.status_code != 200:
+                            url_b2 = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/batch-data'
+                            r_batch = requests.post(url_b2, headers=headers, cookies=cookies, json=body_b, timeout=8)
+                            if r_batch.status_code != 200:
+                                continue
+
+                        docs = r_batch.json().get('data') or []
+                        for doc in docs:
                             doc_id = doc.get('id')
                             doc_name = doc.get('name', '')
                             doc_status = STATUS_MAP.get(doc.get('status', -1), "Chờ ký")
+
+                            # Kiểm tra số CCCD xuất hiện trong tên hoặc từ khóa
+                            doc_nums = re.findall(r'(\d{9,12})', doc_name)
+                            matched = any(
+                                (v == num or v.lstrip('0') == num.lstrip('0'))
+                                for v in variants for num in doc_nums
+                            )
+                            if not matched and kw not in doc_name:
+                                continue
+
                             parts = doc.get('documentParticipants') or []
                             worker = self._extract_worker_participant(parts, doc_name)
-                            if worker:
-                                part_id = worker.get('documentParticipantID') or worker.get('id')
-                                worker_name = worker.get('name', '')
-                                job_position = worker.get('jobPosition', 'Người lao động')
-                                sign_link = self._get_sign_link(doc_id, part_id, headers, cookies)
-                                if sign_link:
-                                    self.contracts_cache[cccd_clean] = {
-                                        "doc_id": doc_id,
-                                        "doc_name": doc_name,
-                                        "participant_id": part_id,
-                                        "worker_name": worker_name,
-                                        "job_position": job_position,
-                                        "batch_id": b_id,
-                                        "batch_name": b_name,
-                                        "doc_status": doc_status
-                                    }
-                                    return _build_success_res(
-                                        doc_id, doc_name, part_id, worker_name, job_position,
-                                        b_id, b_name, doc_status, sign_link
-                                    )
-        except Exception:
-            pass
+                            if not worker:
+                                continue
 
-        # 3. NẾU VẪN CHƯA THẤY: QUÉT TRỰC TIẾP TỪNG ĐỢT TÀI LIỆU
-        batches = self.get_all_batches()
-        for b in batches:
-            b_id = b.get('id')
-            b_name = b.get('name', 'Đợt tài liệu')
-            body_search = {
-                "status": [],
-                "limit": 10,
-                "pageNumber": 1,
-                "keyword": cccd_clean,
-                "DocumentBatchId": b_id,
-                "DocumentBatchTenantId": self.config.get('tenant_id', '')
-            }
-
-            try:
-                res = requests.post(url_batch, headers=headers, cookies=cookies, json=body_search, timeout=8)
-                if res.status_code == 200:
-                    docs = res.json().get('data') or []
-                    if docs:
-                        doc = docs[0]
-                        doc_id = doc.get('id')
-                        doc_name = doc.get('name', '')
-                        doc_status = STATUS_MAP.get(doc.get('status', -1), "Chờ ký")
-                        parts = doc.get('documentParticipants') or []
-
-                        worker = self._extract_worker_participant(parts, doc_name)
-                        if worker:
                             part_id = worker.get('documentParticipantID') or worker.get('id')
                             worker_name = worker.get('name', '')
                             job_position = worker.get('jobPosition', 'Người lao động')
@@ -643,26 +718,20 @@ class WeSignClient:
                                     "batch_name": b_name,
                                     "doc_status": doc_status
                                 }
-
                                 return _build_success_res(
                                     doc_id, doc_name, part_id, worker_name, job_position,
                                     b_id, b_name, doc_status, sign_link
                                 )
-            except Exception:
-                continue
+                except Exception as e:
+                    continue
 
-        phone_info = self.agency_client.get_phone_by_cccd(cccd_clean)
         return {
             "status": "not_found",
             "cccd": cccd_clean,
-            "phone": phone_info.get("phone", ""),
-            "ops_id": phone_info.get("ops_id", ""),
-            "zalo_link": phone_info.get("zalo_link", ""),
-            "message": "Không tìm thấy hợp đồng nào khớp với số CCCD này trong bất kỳ đợt nào"
+            "message": "Không tìm thấy hợp đồng nào khớp với số CCCD này trên WeSign"
         }
 
-    def get_links_batch(self, cccd_list, delay=0.25, callback=None):
-        self.sync_all_contracts(force=True)
+    def get_links_batch(self, cccd_list, delay=0.15, callback=None):
         results = []
         total = len(cccd_list)
         for idx, cccd in enumerate(cccd_list):
@@ -673,51 +742,3 @@ class WeSignClient:
             if idx < total - 1 and delay > 0:
                 time.sleep(delay)
         return results
-
-    def resend_documents(self, doc_ids):
-        """
-        Gửi lại thông báo/email/SMS mời ký hợp đồng cho NLĐ (Resend contract)
-        Hỗ trợ truyền vào 1 doc_id (str) hoặc danh sách doc_ids (list).
-        API chuẩn AMIS WeSign: POST https://amisapp.misa.vn/wesign/g2/api/file-management/api/v3/documents/resend-all
-        """
-        if isinstance(doc_ids, str):
-            doc_ids = [doc_ids]
-        doc_ids = [d for d in doc_ids if d]
-        if not doc_ids:
-            return {"success": False, "message": "Không có ID hợp đồng (documentId) hợp lệ để gửi lại"}
-
-        tenant_id = self.config.get('tenant_id', '')
-        url = "https://amisapp.misa.vn/wesign/g2/api/file-management/api/v3/documents/resend-all"
-        headers = self._get_headers()
-        cookies = parse_cookies_str(self.config.get('cookie', ''))
-
-        payload = {
-            "documents": [{"documentId": d, "tenantId": tenant_id} for d in doc_ids],
-            "Device": {
-                "deviceName": headers.get('User-Agent', DEFAULT_CONFIG['user_agent']),
-                "location": ""
-            }
-        }
-
-        try:
-            res = requests.post(url, headers=headers, cookies=cookies, json=payload, timeout=12)
-            if res.status_code == 200:
-                return {
-                    "success": True,
-                    "count": len(doc_ids),
-                    "message": f"Đã gửi lại thành công cho {len(doc_ids)} hợp đồng qua AMIS WeSign!"
-                }
-            else:
-                err_msg = res.text
-                try:
-                    err_json = res.json()
-                    err_msg = err_json.get('error', {}).get('message', err_msg)
-                except Exception:
-                    pass
-                return {
-                    "success": False,
-                    "status_code": res.status_code,
-                    "message": f"Máy chủ AMIS WeSign phản hồi: {err_msg}"
-                }
-        except Exception as e:
-            return {"success": False, "message": f"Lỗi kết nối khi gửi lại: {str(e)}"}

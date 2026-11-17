@@ -205,21 +205,13 @@
           </div>
 
           <div class="flex items-center gap-2">
-            <button onclick="resendContractBulk()" title="Gửi lại thông báo/email mời ký cho toàn bộ NLĐ chưa hoàn thành ký" class="px-3.5 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-              Gửi Lại Cho NLĐ Chưa Ký
-            </button>
             <button onclick="exportToExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
               Xuất File Excel (.xlsx)
             </button>
-            <button onclick="copyAllLinks()" title="Sao chép dạng bảng: CCCD, Tên, Trạng thái, Link để dán trực tiếp vào Excel" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+            <button onclick="copyAllLinks()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
               Sao Chép Toàn Bộ Link
-            </button>
-            <button onclick="copyOnlyLinks()" title="Chỉ sao chép danh sách URL link ký" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
-              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-              Chỉ Chép Link
             </button>
           </div>
         </div>
@@ -451,7 +443,6 @@
                   <button onclick="copyToClipboard('${data.sign_link}')" class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow-sm">Sao Chép Link Ký</button>
                   <a href="${data.sign_link}" target="_blank" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition">Mở Liên Kết</a>
                   <button onclick="openHistoryModal('${data.doc_id}', '${data.worker_name}', '${data.cccd}')" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition">Xem Lịch Sử Ký</button>
-                  <button onclick="resendContractSingle('${data.doc_id}', '${data.worker_name}')" class="px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-semibold transition">Gửi Lại Hợp Đồng</button>
                 </div>
               </div>
             </div>
@@ -713,11 +704,6 @@
           <a href="${item.sign_link}" target="_blank" title="Mở liên kết" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
           </a>
-          ${item.signing_state !== 'Đã hoàn thành' ? `
-            <button onclick="resendContractSingle('${item.doc_id}', '${item.worker_name || item.cccd}')" title="Gửi lại hợp đồng/thông báo ký cho NLĐ" class="p-1.5 text-violet-600 hover:bg-violet-50 rounded-lg transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-            </button>
-          ` : ''}
         </div>
       ` : '-';
 
@@ -777,116 +763,22 @@
       showToast('Đã tải xuống file Excel thành công!', 'success');
     }
 
-    // ================= CLIPBOARD & COPY FUNCTIONS =================
-    function copyToClipboard(text, customToastMsg) {
-      if (!text) {
-        showToast('Không có nội dung để sao chép', 'warning');
-        return;
-      }
-      const msg = customToastMsg || 'Đã sao chép link ký vào bộ nhớ tạm!';
-
-      function fallbackCopy(str) {
-        try {
-          const textarea = document.createElement('textarea');
-          textarea.value = str;
-          textarea.style.position = 'fixed';
-          textarea.style.top = '-9999px';
-          textarea.style.left = '-9999px';
-          textarea.style.opacity = '0';
-          textarea.setAttribute('readonly', '');
-          document.body.appendChild(textarea);
-          textarea.focus();
-          textarea.select();
-          const ok = document.execCommand('copy');
-          document.body.removeChild(textarea);
-          if (ok) {
-            showToast(msg, 'success');
-          } else {
-            showToast('Không thể tự động sao chép. Vui lòng cấp quyền clipboard!', 'error');
-          }
-        } catch (e) {
-          showToast('Lỗi khi sao chép vào bộ nhớ tạm!', 'error');
-        }
-      }
-
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(() => {
-          showToast(msg, 'success');
-        }).catch(() => {
-          fallbackCopy(text);
-        });
-      } else {
-        fallbackCopy(text);
-      }
-    }
-
     function copyAllLinks() {
       const validLinks = bulkResults.filter(r => r.status === 'success' && r.sign_link);
       if (!validLinks.length) {
         showToast('Không có link ký hợp lệ', 'warning');
         return;
       }
-      const lines = validLinks.map(r => `${r.cccd}\t${r.worker_name || ''}\t${r.signing_state || '-'}\t${r.batch_name || '-'}\t${r.sign_link}`);
-      copyToClipboard(lines.join('\n'), `Đã sao chép ${validLinks.length} link ký vào bộ nhớ tạm!`);
+      const lines = validLinks.map(r => `${r.cccd}\t${r.worker_name}\t${r.sign_link}`);
+      copyToClipboard(lines.join('\n'));
+      showToast(`Đã sao chép ${validLinks.length} link ký!`, 'success');
     }
 
-    function copyOnlyLinks() {
-      const validLinks = bulkResults.filter(r => r.status === 'success' && r.sign_link);
-      if (!validLinks.length) {
-        showToast('Không có link ký hợp lệ', 'warning');
-        return;
-      }
-      const lines = validLinks.map(r => r.sign_link);
-      copyToClipboard(lines.join('\n'), `Đã sao chép ${validLinks.length} URL link ký!`);
-    }
-
-    // ================= RESEND CONTRACT FUNCTIONS =================
-    function resendContractSingle(docId, workerName) {
-      if (!docId) {
-        showToast('Không tìm thấy Document ID để gửi lại', 'error');
-        return;
-      }
-      if (!confirm(`Bạn có chắc muốn gửi lại hợp đồng cho ${workerName || 'NLĐ'} qua AMIS WeSign?`)) {
-        return;
-      }
-      showToast(`Đang gửi lại hợp đồng cho ${workerName || 'NLĐ'}...`, 'info');
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res && res.success) {
-            showToast(`Đã gửi lại hợp đồng thành công cho ${workerName || 'NLĐ'}!`, 'success');
-          } else {
-            showToast((res && res.message) || 'Không thể gửi lại hợp đồng', 'error');
-          }
-        })
-        .withFailureHandler(function(err) {
-          showToast('Lỗi khi gửi lại: ' + err, 'error');
-        })
-        .apiResendDocuments([docId]);
-    }
-
-    function resendContractBulk() {
-      const pendingList = bulkResults.filter(r => r.status === 'success' && r.doc_id && r.signing_state !== 'Đã hoàn thành');
-      if (!pendingList.length) {
-        showToast('Không có người lao động nào chưa hoàn thành ký để gửi lại.', 'warning');
-        return;
-      }
-      if (!confirm(`Hệ thống tìm thấy ${pendingList.length} NLĐ chưa ký.\nBạn có chắc muốn gửi lại thông báo ký cho toàn bộ ${pendingList.length} người này qua AMIS WeSign?`)) {
-        return;
-      }
-      const docIds = pendingList.map(r => r.doc_id);
-      showToast(`Đang gửi lại thông báo ký cho ${docIds.length} người lao động...`, 'info');
-      google.script.run
-        .withSuccessHandler(function(res) {
-          if (res && res.success) {
-            showToast(`Đã gửi lại thành công cho toàn bộ ${docIds.length} NLĐ!`, 'success');
-          } else {
-            showToast((res && res.message) || 'Lỗi gửi lại hàng loạt', 'error');
-          }
-        })
-        .withFailureHandler(function(err) {
-          showToast('Lỗi khi gửi lại: ' + err, 'error');
-        })
-        .apiResendDocuments(docIds);
+    function copyToClipboard(text) {
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Đã sao chép link ký vào bộ nhớ tạm!', 'success');
+      });
     }
 
     function openHistoryModal(docId, workerName, cccd) {

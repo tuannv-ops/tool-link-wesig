@@ -6,46 +6,16 @@ import base64
 import io
 import webbrowser
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-    except Exception:
-        pass
-
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
-
-try:
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-    HAS_OPENPYXL = True
-except ImportError:
-    HAS_OPENPYXL = False
+import pandas as pd
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 from wesign_api import WeSignClient, parse_curl_command
-from agency_api import parse_agency_curl
-
-try:
-    from get_links import find_cccd_column
-except ImportError:
-    def find_cccd_column(df):
-        keywords = ['cccd', 'cmnd', 'căn cước', 'can cuoc', 'dinh danh', 'định danh', 'so_cccd', 'socccd', 'id']
-        for col in df.columns:
-            col_lower = str(col).lower().strip()
-            for kw in keywords:
-                if kw in col_lower:
-                    return col
-        return df.columns[0] if len(df.columns) > 0 else 'CCCD'
+from get_links import find_cccd_column
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(BASE_DIR, 'web')
 INDEX_HTML = os.path.join(WEB_DIR, 'index.html')
-if not os.path.exists(INDEX_HTML):
-    INDEX_HTML = os.path.join(BASE_DIR, 'index.html')
 
 client = WeSignClient()
 
@@ -102,12 +72,11 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if path == '/api/config':
             cfg = client.load_config()
-            cfg['agency_portal'] = client.agency_client.load_config()
             self._send_json(cfg)
             return
 
-        self._send_json({"success": False, "message": f"Tài nguyên không tồn tại ({path})"}, status=404)
-        return
+        self.send_response(404)
+        self.end_headers()
 
     def do_POST(self):
         path = self.path.split('?')[0]
@@ -120,10 +89,7 @@ class AppHandler(BaseHTTPRequestHandler):
             req_data = {}
 
         if path == '/api/config':
-            if 'agency_portal' in req_data:
-                client.agency_client.save_config(req_data['agency_portal'])
             updated = client.save_config(req_data)
-            updated['agency_portal'] = client.agency_client.config
             self._send_json({"success": True, "config": updated})
             return
 
@@ -141,27 +107,6 @@ class AppHandler(BaseHTTPRequestHandler):
             client.save_config(extracted)
             test_res = client.test_connection()
             self._send_json({"success": True, "extracted": extracted, "test": test_res})
-            return
-
-        elif path == '/api/parse-agency-curl':
-            curl_str = req_data.get('curl', '')
-            extracted = parse_agency_curl(curl_str)
-            if not extracted or not extracted.get('cookie'):
-                self._send_json({"success": False, "message": "Không tìm thấy Cookie hợp lệ trong cURL Agency Portal"})
-                return
-            saved_agency = client.agency_client.save_config(extracted)
-            test_res = client.agency_client.test_connection()
-            msg = "Đã cập nhật Cookie Agency Portal thành công!"
-            if test_res.get('success'):
-                msg += " (Đã kết nối thành công)"
-            else:
-                msg += f" (Cảnh báo: {test_res.get('message', '')})"
-            self._send_json({"success": True, "message": msg, "agency_config": saved_agency, "test": test_res})
-            return
-
-        elif path == '/api/test-agency-connection':
-            test_res = client.agency_client.test_connection()
-            self._send_json(test_res)
             return
 
         elif path == '/api/lookup-single':
@@ -191,12 +136,11 @@ class AppHandler(BaseHTTPRequestHandler):
             self.wfile.write(b": connected\n\n")
             self.wfile.flush()
 
-            # Đồng bộ bộ nhớ đệm nếu chưa nạp (force=False để chạy tức thì)
+            # Thông báo bắt đầu tra cứu tức thì
             try:
-                sync_msg = {"type": "syncing", "message": "Đang nạp dữ liệu từ các đợt hợp đồng..."}
-                self.wfile.write(f"data: {json.dumps(sync_msg, ensure_ascii=False)}\n\n".encode('utf-8'))
+                start_msg = {"type": "started", "message": "Bắt đầu tra cứu trực tiếp trên hệ thống AMIS WeSign..."}
+                self.wfile.write(f"data: {json.dumps(start_msg, ensure_ascii=False)}\n\n".encode('utf-8'))
                 self.wfile.flush()
-                client.sync_all_contracts(force=False)
             except Exception:
                 pass
 
@@ -209,9 +153,17 @@ class AppHandler(BaseHTTPRequestHandler):
                         "total": total,
                         "data": res
                     }
+                    if res.get('code') == 401 or res.get('status') == 'expired':
+                        event_payload['type'] = 'auth_error'
+                        event_payload['message'] = res.get('message')
+
                     msg = f"data: {json.dumps(event_payload, ensure_ascii=False)}\n\n"
                     self.wfile.write(msg.encode('utf-8'))
                     self.wfile.flush()
+
+                    # Nếu lỗi xác thực / hết hạn token -> dừng ngay không chạy tiếp
+                    if res.get('code') == 401 or res.get('status') == 'expired':
+                        break
                 except Exception:
                     break
 
@@ -227,9 +179,6 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         elif path == '/api/parse-excel':
-            if not pd:
-                self._send_json({"success": False, "message": "Chưa cài đặt thư viện 'pandas' và 'openpyxl'. Vui lòng chạy lệnh: pip install -r requirements.txt"})
-                return
             base64_data = req_data.get('base64', '')
             filename = req_data.get('filename', 'data.xlsx')
 
@@ -264,9 +213,6 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         elif path == '/api/export-excel':
-            if not pd or not HAS_OPENPYXL:
-                self._send_json({"success": False, "message": "Chưa cài đặt thư viện 'openpyxl'. Vui lòng chạy lệnh: pip install -r requirements.txt"}, status=500)
-                return
             results = req_data.get('results', [])
             try:
                 export_data = []
@@ -275,8 +221,6 @@ class AppHandler(BaseHTTPRequestHandler):
                         "STT": idx + 1,
                         "Số CCCD": r.get('cccd', ''),
                         "Họ và Tên NLĐ": r.get('worker_name', ''),
-                        "Số Điện Thoại": r.get('phone', ''),
-                        "Link Zalo": r.get('zalo_link', ''),
                         "Chức Vụ": r.get('job_position', ''),
                         "Đợt Ký / Lô HĐ": r.get('batch_name', ''),
                         "Tiến Độ Ký (Lịch Sử)": r.get('signing_state', 'Chưa rõ') if r.get('status') == 'success' else '-',
@@ -319,16 +263,16 @@ class AppHandler(BaseHTTPRequestHandler):
                             cell = ws.cell(row=row_idx, column=col_idx)
                             cell.border = thin_border
                             cell.font = Font(name="Calibri", size=10)
-                            # Căn giữa STT, CCCD, SĐT, Trạng thái
-                            if col_idx in [1, 2, 4, 8, 9]:
+                            # Căn giữa STT, CCCD, Trạng thái
+                            if col_idx in [1, 2, 6, 7]:
                                 cell.alignment = Alignment(horizontal="center", vertical="center")
                             else:
                                 cell.alignment = Alignment(vertical="center")
 
-                            # Nếu là cột Link Ký Hợp Đồng hoặc Link Zalo
-                            if cell.value and str(cell.value).startswith('http'):
+                            # Nếu là cột Link Ký Hợp Đồng (cột 8)
+                            if col_idx == 8 and cell.value and str(cell.value).startswith('http'):
                                 cell.font = Font(name="Calibri", size=10, color="2563EB", underline="single")
-                                cell.hyperlink = str(cell.value)
+                                cell.hyperlink = cell.value
 
                     # Tự động điều chỉnh độ rộng cột
                     for col in ws.columns:
@@ -350,71 +294,30 @@ class AppHandler(BaseHTTPRequestHandler):
                 self._send_json({"success": False, "message": f"Lỗi xuất Excel: {str(e)}"}, status=500)
                 return
 
-        elif path == '/api/resend-contract':
-            doc_id = req_data.get('doc_id')
-            doc_ids = req_data.get('doc_ids', [])
-            if doc_id and doc_id not in doc_ids:
-                doc_ids.append(doc_id)
-            if not doc_ids:
-                self._send_json({"success": False, "message": "Vui lòng cung cấp ID hợp đồng (doc_id hoặc doc_ids)"}, status=400)
-                return
-
-            result = client.resend_documents(doc_ids)
-            status_code = 200 if result.get('success') else 400
-            self._send_json(result, status=status_code)
-            return
-
-        self._send_json({"success": False, "message": f"Endpoint không tồn tại ({path}). Vui lòng tải lại trang (F5) hoặc khởi động lại app."}, status=404)
-        return
+        self.send_response(404)
+        self.end_headers()
 
 def run_server(port=5050, auto_open=True):
-    ThreadingHTTPServer.allow_reuse_address = True
-    httpd = None
-    target_port = port
-
-    # Nếu chạy trên Render/Cloud có biến môi trường PORT
-    if 'PORT' in os.environ:
-        try:
-            server_address = ('0.0.0.0', port)
-            httpd = ThreadingHTTPServer(server_address, AppHandler)
-            target_port = port
-        except Exception as e:
-            print(f"[!] Loi khoi dong tren cong Render {port}: {e}")
-            return
-    else:
-        # Chạy máy cục bộ: tự động dò cổng 5050 -> 5059
-        for p in range(port, port + 10):
-            try:
-                server_address = ('', p)
-                httpd = ThreadingHTTPServer(server_address, AppHandler)
-                target_port = p
-                break
-            except OSError:
-                continue
-
-    if not httpd:
-        print(f"[!] Khong the mo cong tu {port} den {port + 9}. Vui long tat cac cua so Python dang chay ngam.")
-        return
-
-    url = f"http://localhost:{target_port}"
+    server_address = ('', port)
+    httpd = ThreadingHTTPServer(server_address, AppHandler)
+    url = f"http://localhost:{port}"
     print("=" * 60)
-    print(f"[*] UNG DUNG WEISIGN LINK HUNTER DANG CHAY TAI: {url}")
-    print(f"[*] Dang tu dong mo trinh duyet tai: {url}...")
+    print(f"[*] ỨNG DỤNG WEISIGN LINK HUNTER ĐANG CHẠY TẠI: {url}")
+    print(f"[*] Mở trình duyệt tại: {url}")
     print("=" * 60)
-
     if auto_open:
         try:
             webbrowser.open(url)
-        except Exception as e:
-            print(f"[!] Khong the tu mo trinh duyet: {e}")
-
+        except Exception:
+            pass
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\n[*] Dang tat may chu...")
+        print("\n[*] Đang tắt ứng dụng...")
         httpd.server_close()
 
 if __name__ == '__main__':
+    # Hỗ trợ tự động nhận cổng khi deploy lên Render/Cloud hoặc chạy máy local
     port = int(os.environ.get('PORT', 5050))
     if len(sys.argv) > 1 and sys.argv[1].isdigit():
         port = int(sys.argv[1])
