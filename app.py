@@ -89,9 +89,12 @@ class AppHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length) if content_length > 0 else b'{}'
 
         try:
-            req_data = json.loads(body.decode('utf-8')) if body else {}
+            req_data = json.loads(body.decode('utf-8', errors='replace')) if body else {}
         except Exception:
-            req_data = {}
+            try:
+                req_data = json.loads(body.decode('utf-8', errors='ignore')) if body else {}
+            except Exception:
+                req_data = {}
 
         if path == '/api/config':
             current_cfg = client.load_config()
@@ -234,6 +237,7 @@ class AppHandler(BaseHTTPRequestHandler):
                         "Số CCCD": r.get('cccd', ''),
                         "Họ và Tên NLĐ": r.get('worker_name', ''),
                         "Chức Vụ": r.get('job_position', ''),
+                        "Thư Mục WeSign": r.get('folder_name', 'Thư mục gốc'),
                         "Đợt Ký / Lô HĐ": r.get('batch_name', ''),
                         "Tiến Độ Ký (Lịch Sử)": r.get('signing_state', 'Chưa rõ') if r.get('status') == 'success' else '-',
                         "Thời Gian NLĐ Ký": r.get('worker_signed_time', '-') if r.get('status') == 'success' else '-',

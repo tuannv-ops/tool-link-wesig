@@ -644,7 +644,18 @@ class WeSignClient:
         tenant_id = self.config.get('tenant_id', '')
         status_filter = self.config.get('status_filter') or [0, 1, 3, 5]
 
-        def _build_success_res(doc_id, doc_name, part_id, worker_name, job_position, b_id, b_name, doc_status, sign_link):
+        # Lấy danh sách tất cả các thư mục có trên WeSign để gán nhãn tên thư mục
+        all_known_folders = self.get_folders()
+        folder_names_map = {f['id']: f['name'] for f in all_known_folders}
+
+        def _build_success_res(doc_id, doc_name, part_id, worker_name, job_position, b_id, b_name, doc_status, sign_link, f_id=None):
+            f_name = folder_names_map.get(f_id)
+            if not f_name:
+                if f_id:
+                    f_name = f"Thư mục {f_id}"
+                else:
+                    f_name = "Thư mục gốc"
+
             res = {
                 "status": "success",
                 "cccd": cccd_clean,
@@ -656,6 +667,8 @@ class WeSignClient:
                 "participant_id": part_id,
                 "doc_status": doc_status,
                 "sign_link": sign_link,
+                "folder_id": f_id,
+                "folder_name": f_name,
                 "signing_state": "Chưa xem",
                 "worker_signed": False,
                 "worker_signed_time": "",
@@ -682,9 +695,11 @@ class WeSignClient:
         # 1. KIỂM TRA NHANH TRONG CACHE (NẾU ĐÃ CÓ)
         if self.contracts_cache:
             doc_info = self.contracts_cache.get(cccd_clean)
+            if not doc_info:
+                doc_info = self.contracts_cache.get(cccd_clean.lower())
             if not doc_info and cccd_clean.startswith('0'):
                 doc_info = self.contracts_cache.get(cccd_clean.lstrip('0'))
-            if not doc_info and not cccd_clean.startswith('0'):
+            if not doc_info and not cccd_clean.startswith('0') and cccd_clean.isdigit():
                 doc_info = self.contracts_cache.get('0' + cccd_clean)
             if not doc_info and len(cccd_clean) < 12 and cccd_clean.isdigit():
                 doc_info = self.contracts_cache.get(cccd_clean.zfill(12))
@@ -695,7 +710,8 @@ class WeSignClient:
                     return _build_success_res(
                         doc_info['doc_id'], doc_info['doc_name'], doc_info['participant_id'],
                         doc_info['worker_name'], doc_info['job_position'], doc_info['batch_id'],
-                        doc_info['batch_name'], doc_info['doc_status'], sign_link
+                        doc_info['batch_name'], doc_info['doc_status'], sign_link,
+                        f_id=doc_info.get('folder_id')
                     )
 
         # 2. TÌM TRỰC TIẾP TRÊN SERVER QUA API /paging/data (FAST SERVER SEARCH)
@@ -817,14 +833,19 @@ class WeSignClient:
                         doc_name = doc.get('name', '')
                         doc_status = STATUS_MAP.get(doc.get('status', -1), "Chờ ký")
 
-                        # Kiểm tra số CCCD xuất hiện trong tên hoặc từ khóa
-                        doc_nums = re.findall(r'(\d{9,12})', doc_name)
-                        matched = any(
-                            (v == num or v.lstrip('0') == num.lstrip('0'))
-                            for v in variants for num in doc_nums
-                        )
-                        if not matched and kw not in doc_name:
-                            continue
+                        # Kiểm tra số CCCD hoặc Từ khóa (Tên / Mã NV) xuất hiện trong tên tài liệu hoặc người ký
+                        doc_name_lower = doc_name.lower()
+                        kw_lower = kw.lower()
+
+                        matched = False
+                        if kw.isdigit():
+                            doc_nums = re.findall(r'(\d{9,12})', doc_name)
+                            matched = any(
+                                (v == num or v.lstrip('0') == num.lstrip('0'))
+                                for v in variants for num in doc_nums
+                            )
+                        if not matched and kw_lower in doc_name_lower:
+                            matched = True
 
                         parts = doc.get('documentParticipants') or []
                         worker = self._extract_worker_participant(parts, doc_name)
@@ -834,6 +855,12 @@ class WeSignClient:
                         part_id = worker.get('documentParticipantID') or worker.get('id')
                         worker_name = worker.get('name', '')
                         job_position = worker.get('jobPosition', 'Người lao động')
+
+                        if not matched and worker_name and kw_lower in worker_name.lower():
+                            matched = True
+
+                        if not matched:
+                            continue
 
                         sign_link = self._get_sign_link(doc_id, part_id, headers, cookies)
                         if sign_link:
@@ -850,7 +877,8 @@ class WeSignClient:
                             }
                             return _build_success_res(
                                 doc_id, doc_name, part_id, worker_name, job_position,
-                                b_id, b_name, doc_status, sign_link
+                                b_id, b_name, doc_status, sign_link,
+                                f_id=found_folder
                             )
                 except Exception:
                     continue

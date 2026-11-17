@@ -72,8 +72,15 @@
     <!-- ================= TAB 1: TRA CỨU ĐƠN LẺ ================= -->
     <div id="tab-single" class="space-y-6">
       <div class="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-        <h2 class="text-base font-semibold text-slate-900 mb-2">Tra cứu nhanh link ký theo số CCCD</h2>
-        <p class="text-sm text-slate-500 mb-6">Nhập số Căn cước công dân của người lao động để tìm hợp đồng và lấy đường link ký trực tiếp.</p>
+        <h2 class="text-base font-semibold text-slate-900 mb-1">Tra cứu nhanh link ký trực tiếp</h2>
+        <p class="text-sm text-slate-500 mb-4">Nhập số CCCD, Mã nhân viên hoặc Họ tên để tìm hợp đồng và lấy đường link ký trực tiếp.</p>
+
+        <div class="mb-5 p-3 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center justify-between text-xs text-blue-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">⚡</span>
+            <span><strong>Phạm vi tra cứu tổng hợp:</strong> Quét tự động <strong>toàn bộ các thư mục WeSign</strong> (HĐLĐPT 12126 + HĐ BPO 12128 và tất cả thư mục con). Hỗ trợ tra cứu theo <strong>CCCD</strong>, <strong>Mã nhân viên</strong> hoặc <strong>Họ tên</strong>.</span>
+          </div>
+        </div>
 
         <form id="single-form" onsubmit="lookupSingle(event)" class="max-w-2xl">
           <div class="flex flex-col sm:flex-row gap-3">
@@ -81,7 +88,7 @@
               <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
               </div>
-              <input type="text" id="single-cccd" placeholder="Nhập số CCCD (VD: 014207009207)..." required
+              <input type="text" id="single-cccd" placeholder="Nhập số CCCD, Mã NV (VD: T290-19980) hoặc Họ Tên..." required
                      class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-800 placeholder-slate-400 text-sm font-medium">
             </div>
             <button type="submit" id="single-btn"
@@ -110,21 +117,28 @@
       <!-- Input Box -->
       <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <h2 class="text-base font-semibold text-slate-900 mb-2">Tra cứu link ký hàng loạt</h2>
-        <p class="text-sm text-slate-500 mb-5">Bạn có thể dán danh sách CCCD hoặc tải lên file Excel (.xlsx, .xls, .csv).</p>
+        <p class="text-sm text-slate-500 mb-4">Bạn có thể dán danh sách CCCD / Mã NV / Họ tên hoặc tải lên file Excel (.xlsx, .xls, .csv).</p>
+
+        <div class="mb-5 p-3 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center justify-between text-xs text-blue-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">⚡</span>
+            <span><strong>Phạm vi tra cứu tổng hợp:</strong> Đang quét song song <strong>toàn bộ các thư mục WeSign</strong> (HĐLĐPT 12126 + HĐ BPO 12128 và tất cả thư mục con). Tự động tìm kiếm linh hoạt theo CCCD, Mã nhân viên hoặc Họ tên.</span>
+          </div>
+        </div>
 
         <!-- Chế độ nhập -->
         <div class="flex border-b border-slate-200 mb-5 gap-6 text-sm font-medium">
-          <button onclick="setBulkMode('text')" id="mode-btn-text" class="pb-2 border-b-2 border-blue-600 text-blue-600 transition">Dán Danh Sách CCCD</button>
+          <button onclick="setBulkMode('text')" id="mode-btn-text" class="pb-2 border-b-2 border-blue-600 text-blue-600 transition">Dán Danh Sách Tra Cứu</button>
           <button onclick="setBulkMode('file')" id="mode-btn-file" class="pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">Tải Lên File Excel / CSV</button>
         </div>
 
         <!-- Mode Text -->
         <div id="bulk-input-text" class="space-y-3">
           <div class="flex items-center justify-between text-xs text-slate-500">
-            <label for="bulk-textarea" class="font-medium text-slate-700">Dán danh sách số CCCD (mỗi số 1 dòng):</label>
-            <span id="bulk-text-count">0 số CCCD</span>
+            <label for="bulk-textarea" class="font-medium text-slate-700">Dán danh sách số CCCD, Mã nhân viên hoặc Họ tên (mỗi người 1 dòng):</label>
+            <span id="bulk-text-count">0 mục</span>
           </div>
-          <textarea id="bulk-textarea" rows="6" oninput="updateBulkCount()" placeholder="014207009207&#10;038207001582&#10;017207002124&#10;077208010463&#10;010206002743"
+          <textarea id="bulk-textarea" rows="6" oninput="updateBulkCount()" placeholder="014207009207&#10;T290-19980&#10;CHÂU HOÀNG PHI&#10;077208010463&#10;010206002743"
                     class="w-full p-3.5 rounded-xl border border-slate-300 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
         </div>
 
@@ -603,7 +617,10 @@
                 <div class="text-right">
                   <span class="text-xs text-slate-500">Trạng thái hợp đồng</span>
                   <p class="text-sm font-bold text-indigo-700">${data.doc_status}</p>
-                  <p class="text-xs text-slate-500 mt-1">Lô: <span class="font-medium text-slate-700">${data.batch_name}</span></p>
+                  <p class="text-xs text-slate-500 mt-1">
+                    ${data.folder_name ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 mr-1">📁 ${data.folder_name}</span>` : ''}
+                    <span class="font-medium text-slate-700">${data.batch_name}</span>
+                  </p>
                 </div>
               </div>
 
@@ -1013,7 +1030,12 @@
         <td class="py-3 px-4 text-center text-slate-400 font-mono">${stt}</td>
         <td class="py-3 px-4 font-mono font-semibold text-slate-800">${item.cccd}</td>
         <td class="py-3 px-4 font-semibold text-slate-900">${item.worker_name || '-'}</td>
-        <td class="py-3 px-4 text-blue-700 font-medium">${item.batch_name || '-'}</td>
+        <td class="py-3 px-4">
+          <div class="flex flex-col gap-0.5">
+            ${item.folder_name ? `<span class="inline-flex items-center w-fit px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">📁 ${item.folder_name}</span>` : ''}
+            <span class="text-blue-700 font-medium text-xs">${item.batch_name || '-'}</span>
+          </div>
+        </td>
         <td class="py-3 px-4 text-center">${signingBadge}</td>
         <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${item.doc_name || ''}">${item.doc_name || '-'}</td>
         <td class="py-3 px-4">${linkCell}</td>
