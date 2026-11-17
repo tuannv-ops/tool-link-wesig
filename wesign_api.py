@@ -656,6 +656,11 @@ class WeSignClient:
                 else:
                     f_name = "Thư mục gốc"
 
+            # Xác định trạng thái ký ban đầu nếu chưa có link ký trực tiếp
+            initial_state = "Chưa xem"
+            if not sign_link:
+                initial_state = "Chờ duyệt / Ký trước"
+
             res = {
                 "status": "success",
                 "cccd": cccd_clean,
@@ -666,10 +671,10 @@ class WeSignClient:
                 "doc_id": doc_id,
                 "participant_id": part_id,
                 "doc_status": doc_status,
-                "sign_link": sign_link,
+                "sign_link": sign_link or "",
                 "folder_id": f_id,
                 "folder_name": f_name,
-                "signing_state": "Chưa xem",
+                "signing_state": initial_state,
                 "worker_signed": False,
                 "worker_signed_time": "",
                 "worker_viewed": False,
@@ -680,8 +685,12 @@ class WeSignClient:
             }
             if include_history and doc_id:
                 h_info = self.get_document_history(doc_id, worker_name)
+                h_state = h_info.get("signing_state", initial_state)
+                # Nếu chưa có link ký của NLĐ và NLĐ chưa ký -> Đang chờ cấp trên/người khác duyệt trước
+                if not sign_link and not h_info.get("worker_signed") and not h_info.get("is_completed"):
+                    h_state = "Chờ duyệt / Ký trước"
                 res.update({
-                    "signing_state": h_info.get("signing_state", "Chưa xem"),
+                    "signing_state": h_state,
                     "worker_signed": h_info.get("worker_signed", False),
                     "worker_signed_time": h_info.get("worker_signed_time", ""),
                     "worker_viewed": h_info.get("worker_viewed", False),
@@ -705,14 +714,15 @@ class WeSignClient:
                 doc_info = self.contracts_cache.get(cccd_clean.zfill(12))
 
             if doc_info:
-                sign_link = self._get_sign_link(doc_info['doc_id'], doc_info['participant_id'], headers, cookies)
-                if sign_link:
-                    return _build_success_res(
-                        doc_info['doc_id'], doc_info['doc_name'], doc_info['participant_id'],
-                        doc_info['worker_name'], doc_info['job_position'], doc_info['batch_id'],
-                        doc_info['batch_name'], doc_info['doc_status'], sign_link,
-                        f_id=doc_info.get('folder_id')
-                    )
+                sign_link = doc_info.get('sign_link')
+                if not sign_link:
+                    sign_link = self._get_sign_link(doc_info['doc_id'], doc_info['participant_id'], headers, cookies) or ""
+                return _build_success_res(
+                    doc_info['doc_id'], doc_info['doc_name'], doc_info['participant_id'],
+                    doc_info['worker_name'], doc_info['job_position'], doc_info['batch_id'],
+                    doc_info['batch_name'], doc_info['doc_status'], sign_link,
+                    f_id=doc_info.get('folder_id')
+                )
 
         # 2. TÌM TRỰC TIẾP TRÊN SERVER QUA API /paging/data (FAST SERVER SEARCH)
         # Chuẩn bị các biến thể của CCCD
@@ -862,24 +872,24 @@ class WeSignClient:
                         if not matched:
                             continue
 
-                        sign_link = self._get_sign_link(doc_id, part_id, headers, cookies)
-                        if sign_link:
-                            self.contracts_cache[cccd_clean] = {
-                                "doc_id": doc_id,
-                                "doc_name": doc_name,
-                                "participant_id": part_id,
-                                "worker_name": worker_name,
-                                "job_position": job_position,
-                                "batch_id": b_id,
-                                "batch_name": b_name,
-                                "doc_status": doc_status,
-                                "folder_id": found_folder
-                            }
-                            return _build_success_res(
-                                doc_id, doc_name, part_id, worker_name, job_position,
-                                b_id, b_name, doc_status, sign_link,
-                                f_id=found_folder
-                            )
+                        sign_link = self._get_sign_link(doc_id, part_id, headers, cookies) or ""
+                        self.contracts_cache[cccd_clean] = {
+                            "doc_id": doc_id,
+                            "doc_name": doc_name,
+                            "participant_id": part_id,
+                            "worker_name": worker_name,
+                            "job_position": job_position,
+                            "batch_id": b_id,
+                            "batch_name": b_name,
+                            "doc_status": doc_status,
+                            "folder_id": found_folder,
+                            "sign_link": sign_link
+                        }
+                        return _build_success_res(
+                            doc_id, doc_name, part_id, worker_name, job_position,
+                            b_id, b_name, doc_status, sign_link,
+                            f_id=found_folder
+                        )
                 except Exception:
                     continue
 
