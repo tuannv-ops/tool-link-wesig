@@ -75,6 +75,11 @@ class AppHandler(BaseHTTPRequestHandler):
             self._send_json(cfg)
             return
 
+        if path == '/api/folders':
+            folders = client.get_folders(force_refresh=True)
+            self._send_json({"success": True, "folders": folders})
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -89,6 +94,10 @@ class AppHandler(BaseHTTPRequestHandler):
             req_data = {}
 
         if path == '/api/config':
+            current_cfg = client.load_config()
+            if current_cfg.get('folder_id') == 'all' and req_data.get('folder_id') != 'all':
+                if req_data.get('source') == 'extension' or 'folder_id' not in req_data:
+                    req_data['folder_id'] = 'all'
             updated = client.save_config(req_data)
             self._send_json({"success": True, "config": updated})
             return
@@ -104,6 +113,9 @@ class AppHandler(BaseHTTPRequestHandler):
             if not extracted or not (extracted.get('token') or extracted.get('cookie')):
                 self._send_json({"success": False, "message": "Không tìm thấy Token hoặc Cookie hợp lệ trong cURL"})
                 return
+            current_cfg = client.load_config()
+            if current_cfg.get('folder_id') == 'all' or req_data.get('all_folders'):
+                extracted['folder_id'] = 'all'
             client.save_config(extracted)
             test_res = client.test_connection()
             self._send_json({"success": True, "extracted": extracted, "test": test_res})

@@ -891,10 +891,11 @@ class WeSignGUIApp:
         grid_frame = tk.Frame(box_fields)
         grid_frame.pack(fill=tk.X, pady=(2, 6))
 
-        tk.Label(grid_frame, text="Folder ID (Thư mục tài liệu):", font=self.font_small, fg="#334155").grid(row=0, column=0, sticky="w", padx=(0, 10))
+        tk.Label(grid_frame, text="Folder ID ('all' = Tất cả thư mục):", font=self.font_small, fg="#334155").grid(row=0, column=0, sticky="w", padx=(0, 10))
         ent_folder = tk.Entry(grid_frame, font=self.font_mono, relief=tk.SOLID, bd=1)
         ent_folder.grid(row=1, column=0, sticky="ew", padx=(0, 10))
-        ent_folder.insert(0, str(cfg.get('folder_id') or ''))
+        cur_fid = cfg.get('folder_id')
+        ent_folder.insert(0, str(cur_fid if cur_fid is not None else 'all'))
 
         tk.Label(grid_frame, text="Tenant ID:", font=self.font_small, fg="#334155").grid(row=0, column=1, sticky="w", padx=(0, 10))
         ent_tenant = tk.Entry(grid_frame, font=self.font_mono, relief=tk.SOLID, bd=1)

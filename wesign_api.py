@@ -4,6 +4,7 @@ import time
 import os
 import base64
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
@@ -12,7 +13,7 @@ DEFAULT_CONFIG = {
     "token": "",
     "cookie": "",
     "document_batch_id": "",
-    "folder_id": 12126,
+    "folder_id": "all",
     "tenant_id": "c4e3c4ef-a722-40cd-96ed-6aa20a86ee94",
     "device_id": "6d656d65-248f-4cc2-80e1-69faf29f910d",
     "status_filter": [0, 1, 3, 5],
@@ -119,6 +120,8 @@ class WeSignClient:
         self.batches_cache_time = 0
         self.contracts_cache = {}  # cccd -> doc info
         self.contracts_cache_time = 0
+        self.cached_folders = []
+        self.folders_cache_time = 0
 
     def load_config(self):
         cfg = DEFAULT_CONFIG.copy()
@@ -138,10 +141,11 @@ class WeSignClient:
         if os.environ.get('WESIGN_BATCH_ID'):
             cfg['document_batch_id'] = os.environ['WESIGN_BATCH_ID']
         if os.environ.get('WESIGN_FOLDER_ID'):
-            try:
-                cfg['folder_id'] = int(os.environ['WESIGN_FOLDER_ID'])
-            except Exception:
-                cfg['folder_id'] = os.environ['WESIGN_FOLDER_ID']
+            val = os.environ['WESIGN_FOLDER_ID'].strip()
+            if val.isdigit():
+                cfg['folder_id'] = int(val)
+            else:
+                cfg['folder_id'] = val
         if os.environ.get('WESIGN_TENANT_ID'):
             cfg['tenant_id'] = os.environ['WESIGN_TENANT_ID']
 
@@ -152,12 +156,17 @@ class WeSignClient:
             self.config.update(new_config)
             self.cached_batches = []
             self.contracts_cache = {}
+            if 'token' in new_config or 'cookie' in new_config:
+                self.cached_folders = []
+                self.folders_cache_time = 0
         with open(self.config_path, 'w', encoding='utf-8') as f:
             json.dump(self.config, f, ensure_ascii=False, indent=2)
         return self.config
 
     def _get_headers(self):
-        return {
+        tenant_id = self.config.get('tenant_id', '')
+        device_id = self.config.get('device_id', '')
+        headers = {
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8',
             'Authorization': f"Bearer {self.config.get('token', '')}",
@@ -168,10 +177,49 @@ class WeSignClient:
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-origin',
             'User-Agent': self.config.get('user_agent', DEFAULT_CONFIG['user_agent']),
-            'deviceId': self.config.get('device_id', ''),
-            'productVersion': 'R3',
-            'x-misa-ws-database-tenantid': self.config.get('tenant_id', '')
+            'productVersion': 'R3'
         }
+        if device_id:
+            headers['deviceId'] = device_id
+        if tenant_id:
+            headers['x-misa-ws-database-tenantid'] = tenant_id
+            headers['x-tenantid'] = tenant_id
+            headers['tenantId'] = tenant_id
+        return headers
+
+    def get_folders(self, force_refresh=False):
+        """
+        Lấy danh sách tất cả các thư mục từ MISA WeSign:
+        POST /wesign/g2/api/file-management/api/v1/documents/get-folder
+        """
+        now = time.time()
+        if not force_refresh and self.cached_folders and (now - self.folders_cache_time < 300):
+            return self.cached_folders
+
+        url = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/get-folder'
+        headers = self._get_headers()
+        cookies = parse_cookies_str(self.config.get('cookie', ''))
+
+        try:
+            r = requests.post(url, headers=headers, cookies=cookies, json={}, timeout=10)
+            if r.status_code == 200:
+                raw_folders = r.json() or []
+                folders_list = []
+                for f in raw_folders:
+                    f_id = f.get('id')
+                    if f_id is not None:
+                        folders_list.append({
+                            "id": f_id,
+                            "name": f.get('folderName', f'Thư mục {f_id}'),
+                            "parent_id": f.get('parentID'),
+                            "code": f.get('folderCode', '')
+                        })
+                self.cached_folders = folders_list
+                self.folders_cache_time = now
+                return folders_list
+        except Exception as e:
+            print(f"Lỗi lấy danh sách thư mục từ WeSign: {e}")
+        return self.cached_folders or []
 
     def _get_user_info(self):
         token = self.config.get('token', '')
@@ -205,11 +253,13 @@ class WeSignClient:
     def _get_user_id(self):
         return self._get_user_info().get('user_id', '')
 
-    def get_all_batches(self, force_refresh=False, max_pages=15):
+    def get_all_batches(self, force_refresh=False, max_pages=10):
         """
-        Lấy danh sách TẤT CẢ các đợt/lô tài liệu từ WeSign qua API /v1/documents/paging/data.
-        Sử dụng Cursor-based pagination (sortParameters) để lấy toàn bộ các trang (không bị giới hạn 28 hay 100).
-        Tự động truyền folderID nếu có trong cấu hình.
+        Lấy danh sách các đợt/lô tài liệu từ WeSign qua API /v1/documents/paging/data.
+        Hỗ trợ:
+        - folder_id = 'all': Quét qua TẤT CẢ các thư mục + Thư mục gốc (Mặc định).
+        - folder_id = None hoặc '': Quét Thư mục gốc.
+        - folder_id = <id>: Quét riêng thư mục chỉ định.
         """
         now = time.time()
         if not force_refresh and self.cached_batches and (now - self.batches_cache_time < 300):
@@ -219,52 +269,73 @@ class WeSignClient:
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
 
-        folder_id = self.config.get('folder_id')
-        status_filter = self.config.get('status_filter') or [0, 1, 3, 5]
+        folder_cfg = self.config.get('folder_id')
+        is_all_folders = str(folder_cfg).strip().lower() in ['all', 'tat-ca', 'all_folders', 'tatca']
 
+        if is_all_folders:
+            folders = self.get_folders()
+            target_folders = [(None, "Thư mục gốc")] + [(f['id'], f['name']) for f in folders]
+        elif folder_cfg in [None, '', 0, '0']:
+            target_folders = [(None, "Thư mục gốc")]
+        else:
+            try:
+                fid_num = int(folder_cfg)
+                fname = f"Thư mục {fid_num}"
+                for f in self.get_folders():
+                    if f['id'] == fid_num:
+                        fname = f['name']
+                        break
+                target_folders = [(fid_num, fname)]
+            except Exception:
+                target_folders = [(folder_cfg, f"Thư mục {folder_cfg}")]
+
+        status_filter = self.config.get('status_filter') or [0, 1, 3, 5]
         all_batches = []
         seen_ids = set()
-        sort_params = []
 
-        for page in range(1, max_pages + 1):
-            body = {
-                "status": status_filter,
-                "limit": 50,
-                "pageNumber": page,
-                "keyword": "",
-                "isMine": False,
-                "isParticipated": False,
-                "isTrash": False,
-                "DocumentRoleFilter": 1,
-                "folderID": folder_id,
-                "actionType": 1,
-                "typeSearch": 2,
-                "sortParameters": sort_params
-            }
+        for f_id, f_name in target_folders:
+            sort_params = []
+            for page in range(1, max_pages + 1):
+                body = {
+                    "status": status_filter,
+                    "limit": 50,
+                    "pageNumber": page,
+                    "keyword": "",
+                    "isMine": False,
+                    "isParticipated": False,
+                    "isTrash": False,
+                    "DocumentRoleFilter": 1,
+                    "folderID": f_id,
+                    "actionType": 1,
+                    "typeSearch": 2,
+                    "sortParameters": sort_params
+                }
 
-            try:
-                res = requests.post(url, headers=headers, cookies=cookies, json=body, timeout=12)
-                if res.status_code != 200:
+                try:
+                    res = requests.post(url, headers=headers, cookies=cookies, json=body, timeout=12)
+                    if res.status_code != 200:
+                        break
+                    res_data = res.json()
+                    data = res_data.get('data') or []
+                    sort_nexts = res_data.get('sortParameterNexts') or []
+
+                    new_count = 0
+                    for item in data:
+                        item_id = item.get('id')
+                        if item_id and item_id not in seen_ids:
+                            seen_ids.add(item_id)
+                            item['folder_id'] = f_id
+                            item['folder_name'] = f_name
+                            all_batches.append(item)
+                            new_count += 1
+
+                    if not sort_nexts or len(data) == 0 or new_count == 0:
+                        break
+
+                    sort_params = sort_nexts
+                except Exception as e:
+                    print(f"[!] Lỗi get_all_batches thư mục {f_name} (trang {page}): {e}")
                     break
-                res_data = res.json()
-                data = res_data.get('data') or []
-                sort_nexts = res_data.get('sortParameterNexts') or []
-
-                new_count = 0
-                for item in data:
-                    item_id = item.get('id')
-                    if item_id and item_id not in seen_ids:
-                        seen_ids.add(item_id)
-                        all_batches.append(item)
-                        new_count += 1
-
-                if not sort_nexts or len(data) == 0 or new_count == 0:
-                    break
-
-                sort_params = sort_nexts
-            except Exception as e:
-                print(f"[!] Lỗi get_all_batches (trang {page}): {e}")
-                break
 
         if all_batches:
             self.cached_batches = all_batches
@@ -292,7 +363,6 @@ class WeSignClient:
         url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/batch-data'
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
-        folder_id = self.config.get('folder_id')
         tenant_id = self.config.get('tenant_id', '')
         status_filter = self.config.get('status_filter') or [0, 1, 3, 5]
 
@@ -300,6 +370,7 @@ class WeSignClient:
         for b in batches:
             b_id = b.get('id')
             b_name = b.get('name', 'Đợt tài liệu')
+            b_folder_id = b.get('folder_id')
             try:
                 body_b = {
                     "status": status_filter,
@@ -308,7 +379,7 @@ class WeSignClient:
                     "keyword": "",
                     "DocumentBatchId": b_id,
                     "DocumentBatchTenantId": tenant_id,
-                    "folderID": folder_id
+                    "folderID": b_folder_id
                 }
                 res_b = requests.post(url_batch, headers=headers, cookies=cookies, json=body_b, timeout=10)
                 if res_b.status_code == 200:
@@ -333,7 +404,8 @@ class WeSignClient:
                                 "job_position": job_position,
                                 "batch_id": b_id,
                                 "batch_name": b_name,
-                                "doc_status": doc_status
+                                "doc_status": doc_status,
+                                "folder_id": b_folder_id
                             }
 
                             found_numbers = re.findall(r'(\d{9,12})', doc_name)
@@ -364,19 +436,25 @@ class WeSignClient:
         user_info = self._get_user_info()
         user_name = user_info.get('user_name') or 'AMIS WeSign'
         folder_id = self.config.get('folder_id')
+        folders = self.get_folders(force_refresh=True)
 
-        batches = self.get_all_batches(force_refresh=True, max_pages=3)
-        if batches:
+        is_all_folders = str(folder_id).strip().lower() in ['all', 'tat-ca', 'all_folders', 'tatca']
+        max_p = 1 if is_all_folders else 3
+        batches = self.get_all_batches(force_refresh=True, max_pages=max_p)
+
+        if batches or folders:
             total = len(batches)
-            first_name = batches[0].get('name', 'Đợt tài liệu')
-            folder_info = f" (Folder: {folder_id})" if folder_id else ""
+            first_name = batches[0].get('name', 'Đợt tài liệu') if batches else ''
+            folder_info = " (Tất cả thư mục)" if is_all_folders else (f" (Folder: {folder_id})" if folder_id else " (Thư mục gốc)")
+            folder_count_info = f" | {len(folders)} thư mục" if folders else ""
             return {
                 "success": True,
-                "message": f"Kết nối thành công! Đăng nhập: {user_name}. Đang tải được {total} đợt hợp đồng{folder_info} (Ví dụ: '{first_name}')",
+                "message": f"Kết nối thành công! Đăng nhập: {user_name}. Đã nạp {total} đợt tài liệu{folder_count_info}{folder_info}{f' (VD: {first_name})' if first_name else ''}",
                 "batchName": f"{user_name} - {total} đợt tài liệu{folder_info}",
                 "total": total,
                 "userName": user_name,
-                "folderId": folder_id
+                "folderId": folder_id,
+                "folders": folders
             }
         return {"success": False, "message": "Không thể kết nối hoặc Token/Cookie đã hết hạn. Hãy copy cURL mới từ WeSign để cập nhật."}
 
@@ -633,96 +711,148 @@ class WeSignClient:
         url_search = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/data'
         url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/batch-data'
 
-        # Ưu tiên tìm trong Folder trước, nếu không thấy thì mở rộng tìm toàn hệ thống (None)
-        search_folders = [folder_id]
-        if folder_id is not None:
-            search_folders.append(None)
+        # Lấy danh sách tất cả các thư mục có trên WeSign
+        all_known_folders = self.get_folders()
+        all_folder_ids = [None] + [f['id'] for f in all_known_folders]
 
-        for f_id in search_folders:
-            for kw in variants:
-                body_search = {
+        is_all_folders = str(folder_id).strip().lower() in ['all', 'tat-ca', 'all_folders', 'tatca']
+
+        if is_all_folders or folder_id in [None, '']:
+            search_folders = all_folder_ids
+        else:
+            try:
+                fid_num = int(folder_id)
+            except Exception:
+                fid_num = folder_id
+            search_folders = [fid_num] + [f for f in all_folder_ids if f != fid_num]
+
+        # Hàm con tìm kiếm đợt chứa từ khóa trong 1 thư mục
+        def _search_in_folder(f_id, kw):
+            body_search = {
+                'status': status_filter,
+                'limit': 10,
+                'pageNumber': 1,
+                'keyword': kw,
+                'folderID': f_id,
+                'actionType': 1,
+                'typeSearch': 2
+            }
+            try:
+                r_s = requests.post(url_search, headers=headers, cookies=cookies, json=body_search, timeout=8)
+                if r_s.status_code == 401:
+                    return 401, []
+                if r_s.status_code == 200:
+                    return 200, (r_s.json().get('data') or [])
+            except Exception:
+                pass
+            return 0, []
+
+        for kw in variants:
+            found_folder = None
+            matching_batches = []
+
+            # Nếu chỉ có 1 folder mục tiêu, chạy trực tiếp
+            if len(search_folders) == 1:
+                status_code, batches = _search_in_folder(search_folders[0], kw)
+                if status_code == 401:
+                    return {
+                        "status": "error",
+                        "code": 401,
+                        "cccd": cccd_clean,
+                        "message": "Phiên đăng nhập MISA WeSign đã hết hạn (401 Unauthorized). Vui lòng cập nhật Token mới!"
+                    }
+                if batches:
+                    found_folder = search_folders[0]
+                    matching_batches = batches
+            else:
+                # Quét song song các thư mục bằng ThreadPoolExecutor
+                with ThreadPoolExecutor(max_workers=min(len(search_folders), 6)) as executor:
+                    futures = {executor.submit(_search_in_folder, fid, kw): fid for fid in search_folders}
+                    for fut in as_completed(futures):
+                        fid = futures[fut]
+                        try:
+                            status_code, batches = fut.result()
+                            if status_code == 401:
+                                return {
+                                    "status": "error",
+                                    "code": 401,
+                                    "cccd": cccd_clean,
+                                    "message": "Phiên đăng nhập MISA WeSign đã hết hạn (401 Unauthorized). Vui lòng cập nhật Token mới!"
+                                }
+                            if batches:
+                                found_folder = fid
+                                matching_batches = batches
+                                break
+                        except Exception:
+                            pass
+
+            if not matching_batches:
+                continue
+
+            for b in matching_batches:
+                b_id = b.get('id')
+                b_name = b.get('name', 'Đợt tài liệu')
+
+                # Gọi batch-data để tìm văn bản của người này bên trong đợt
+                body_b = {
                     'status': status_filter,
-                    'limit': 10,
+                    'limit': 20,
                     'pageNumber': 1,
                     'keyword': kw,
-                    'folderID': f_id,
-                    'actionType': 1,
-                    'typeSearch': 2
+                    'DocumentBatchId': b_id,
+                    'DocumentBatchTenantId': tenant_id,
+                    'folderID': found_folder
                 }
                 try:
-                    r_search = requests.post(url_search, headers=headers, cookies=cookies, json=body_search, timeout=8)
-                    if r_search.status_code == 401:
-                        return {
-                            "status": "error",
-                            "code": 401,
-                            "cccd": cccd_clean,
-                            "message": "Phiên đăng nhập MISA WeSign đã hết hạn (401 Unauthorized). Vui lòng cập nhật Token mới!"
-                        }
-                    if r_search.status_code != 200:
-                        continue
-                    matching_batches = r_search.json().get('data') or []
-                    for b in matching_batches:
-                        b_id = b.get('id')
-                        b_name = b.get('name', 'Đợt tài liệu')
-
-                        # Gọi batch-data để tìm văn bản của người này bên trong đợt
-                        body_b = {
-                            'status': status_filter,
-                            'limit': 20,
-                            'pageNumber': 1,
-                            'keyword': kw,
-                            'DocumentBatchId': b_id,
-                            'DocumentBatchTenantId': tenant_id,
-                            'folderID': f_id
-                        }
-                        r_batch = requests.post(url_batch, headers=headers, cookies=cookies, json=body_b, timeout=8)
+                    r_batch = requests.post(url_batch, headers=headers, cookies=cookies, json=body_b, timeout=8)
+                    if r_batch.status_code != 200:
+                        url_b2 = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/batch-data'
+                        r_batch = requests.post(url_b2, headers=headers, cookies=cookies, json=body_b, timeout=8)
                         if r_batch.status_code != 200:
-                            url_b2 = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/batch-data'
-                            r_batch = requests.post(url_b2, headers=headers, cookies=cookies, json=body_b, timeout=8)
-                            if r_batch.status_code != 200:
-                                continue
+                            continue
 
-                        docs = r_batch.json().get('data') or []
-                        for doc in docs:
-                            doc_id = doc.get('id')
-                            doc_name = doc.get('name', '')
-                            doc_status = STATUS_MAP.get(doc.get('status', -1), "Chờ ký")
+                    docs = r_batch.json().get('data') or []
+                    for doc in docs:
+                        doc_id = doc.get('id')
+                        doc_name = doc.get('name', '')
+                        doc_status = STATUS_MAP.get(doc.get('status', -1), "Chờ ký")
 
-                            # Kiểm tra số CCCD xuất hiện trong tên hoặc từ khóa
-                            doc_nums = re.findall(r'(\d{9,12})', doc_name)
-                            matched = any(
-                                (v == num or v.lstrip('0') == num.lstrip('0'))
-                                for v in variants for num in doc_nums
+                        # Kiểm tra số CCCD xuất hiện trong tên hoặc từ khóa
+                        doc_nums = re.findall(r'(\d{9,12})', doc_name)
+                        matched = any(
+                            (v == num or v.lstrip('0') == num.lstrip('0'))
+                            for v in variants for num in doc_nums
+                        )
+                        if not matched and kw not in doc_name:
+                            continue
+
+                        parts = doc.get('documentParticipants') or []
+                        worker = self._extract_worker_participant(parts, doc_name)
+                        if not worker:
+                            continue
+
+                        part_id = worker.get('documentParticipantID') or worker.get('id')
+                        worker_name = worker.get('name', '')
+                        job_position = worker.get('jobPosition', 'Người lao động')
+
+                        sign_link = self._get_sign_link(doc_id, part_id, headers, cookies)
+                        if sign_link:
+                            self.contracts_cache[cccd_clean] = {
+                                "doc_id": doc_id,
+                                "doc_name": doc_name,
+                                "participant_id": part_id,
+                                "worker_name": worker_name,
+                                "job_position": job_position,
+                                "batch_id": b_id,
+                                "batch_name": b_name,
+                                "doc_status": doc_status,
+                                "folder_id": found_folder
+                            }
+                            return _build_success_res(
+                                doc_id, doc_name, part_id, worker_name, job_position,
+                                b_id, b_name, doc_status, sign_link
                             )
-                            if not matched and kw not in doc_name:
-                                continue
-
-                            parts = doc.get('documentParticipants') or []
-                            worker = self._extract_worker_participant(parts, doc_name)
-                            if not worker:
-                                continue
-
-                            part_id = worker.get('documentParticipantID') or worker.get('id')
-                            worker_name = worker.get('name', '')
-                            job_position = worker.get('jobPosition', 'Người lao động')
-
-                            sign_link = self._get_sign_link(doc_id, part_id, headers, cookies)
-                            if sign_link:
-                                self.contracts_cache[cccd_clean] = {
-                                    "doc_id": doc_id,
-                                    "doc_name": doc_name,
-                                    "participant_id": part_id,
-                                    "worker_name": worker_name,
-                                    "job_position": job_position,
-                                    "batch_id": b_id,
-                                    "batch_name": b_name,
-                                    "doc_status": doc_status
-                                }
-                                return _build_success_res(
-                                    doc_id, doc_name, part_id, worker_name, job_position,
-                                    b_id, b_name, doc_status, sign_link
-                                )
-                except Exception as e:
+                except Exception:
                     continue
 
         return {

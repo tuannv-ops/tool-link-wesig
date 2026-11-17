@@ -144,7 +144,8 @@ function handleCapturedToken(token, tenantId, deviceId, headerCookie, folderId) 
 
       const payload = {
         token: token,
-        cookie: fullCookieStr
+        cookie: fullCookieStr,
+        source: "extension"
       };
       if (tenantId) payload.tenant_id = tenantId;
       if (deviceId) payload.device_id = deviceId;
