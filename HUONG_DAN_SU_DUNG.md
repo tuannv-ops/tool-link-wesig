@@ -86,3 +86,11 @@ Phiên đăng nhập trên WeSign hoặc mã bảo vệ Cloudflare (`cf_clearanc
 - `config.json`: File lưu trữ cấu hình kết nối, Token, Cookie, Batch ID.
 - `web/index.html`: Giao diện ứng dụng người dùng (HTML5, Tailwind CSS, Javascript).
 - `Mau_Danh_Sach_CCCD.xlsx`: File Excel mẫu sẵn có chứa dữ liệu mẫu để thử nghiệm.
+
+---
+
+## 5. THÔNG TIN PHÁT TRIỂN & HỖ TRỢ KỸ THUẬT
+
+- **Người phát triển:** Nguyễn Văn Tuấn
+- **Hỗ trợ / Báo lỗi qua Zalo:** [0353225093](https://zalo.me/0353225093)
+- **Hỗ trợ qua Lark:** Tuan , Nguyen Van

@@ -31,13 +31,26 @@
              alt="Logo" 
              class="h-11 w-auto max-w-[150px] object-contain rounded-xl shadow-xs border border-slate-200/90 hover:opacity-95 transition">
         <div>
-          <h1 class="text-lg font-bold text-slate-900 leading-tight">Tool Lấy Link Hợp Đồng Lao Động Nhanh</h1>
-          <p class="text-xs text-slate-500">Tra cứu & Lấy Link Ký Hợp Đồng MISA WeSign Theo Số CCCD</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-lg font-bold text-slate-900 leading-tight">Tool Lấy Link Hợp Đồng Lao Động Nhanh</h1>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              Dev: Nguyễn Văn Tuấn
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Tra cứu & Lấy Link Ký Hợp Đồng MISA WeSign Theo Số CCCD / Mã NV / Họ Tên</p>
         </div>
       </div>
 
-      <!-- Trạng thái kết nối -->
-      <div class="flex items-center gap-3">
+      <!-- Trạng thái kết nối & Liên hệ hỗ trợ -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="hidden lg:flex items-center gap-3 text-xs bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/80">
+          <span class="text-slate-500">Hỗ trợ / Báo lỗi:</span>
+          <a href="https://zalo.me/0353225093" target="_blank" class="font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
+            <span>📱 Zalo: 0353225093</span>
+          </a>
+          <span class="text-slate-300">|</span>
+          <span class="font-medium text-indigo-700">Lark: Tuan , Nguyen Van</span>
+        </div>
         <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
           <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span>
           <span id="connection-text">Đang kiểm tra kết nối...</span>
@@ -355,10 +368,58 @@
             </button>
           </div>
         </form>
+
+        <!-- Thông tin tác giả & Hỗ trợ kỹ thuật -->
+        <div class="mt-8 p-5 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-2xl border border-blue-200/80 shadow-xs">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-base">👨‍💻</span>
+                <span class="text-xs uppercase tracking-wider font-bold text-blue-900">Thông Tin Phát Triển & Hỗ Trợ Kỹ Thuật</span>
+              </div>
+              <p class="text-sm font-semibold text-slate-800">
+                Người phát triển: <span class="text-blue-700">Nguyễn Văn Tuấn</span>
+              </p>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Nếu gặp lỗi trong quá trình tra cứu hoặc cần hỗ trợ thêm tính năng, vui lòng liên hệ trực tiếp:
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <a href="https://zalo.me/0353225093" target="_blank" 
+                 class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 2.17.7 4.19 1.9 5.86L2.5 22l4.31-1.37C8.42 21.46 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+                Zalo: 0353225093
+              </a>
+              <div class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-indigo-800 border border-indigo-200 rounded-xl text-xs font-semibold shadow-xs transition">
+                <span>💬 Lark:</span>
+                <span class="font-bold">Tuan , Nguyen Van</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
   </main>
+
+  <!-- Footer -->
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-slate-200/80 mt-12 text-xs text-slate-500">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-slate-700">Tool Lấy Link Hợp Đồng Lao Động AMIS WeSign</span>
+        <span class="text-slate-300">|</span>
+        <span>Người Phát Triển: <strong class="text-slate-800">Nguyễn Văn Tuấn</strong></span>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <span>Báo lỗi / Hỗ trợ:</span>
+        <a href="https://zalo.me/0353225093" target="_blank" class="font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
+          <span>📱 Zalo: 0353225093</span>
+        </a>
+        <span class="text-slate-300">•</span>
+        <span class="text-slate-700 font-medium">💬 Lark: <strong class="text-indigo-700">Tuan , Nguyen Van</strong></span>
+      </div>
+    </div>
+  </footer>
 
   <script>
     // State management

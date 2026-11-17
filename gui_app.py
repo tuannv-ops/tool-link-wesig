@@ -96,7 +96,7 @@ class WeSignGUIApp:
 
         lbl_title = tk.Label(text_title_box, text="TOOL LẤY LINK HỢP ĐỒNG LAO ĐỘNG NHANH", font=("Segoe UI", 13, "bold"), fg="white", bg="#1E40AF")
         lbl_title.pack(anchor="w")
-        lbl_sub = tk.Label(text_title_box, text="Tra cứu toàn bộ tài liệu & lấy link ký hợp đồng hàng loạt theo CCCD", font=("Segoe UI", 9), fg="#93C5FD", bg="#1E40AF")
+        lbl_sub = tk.Label(text_title_box, text="Dev: Nguyễn Văn Tuấn | Zalo: 0353225093 | Lark: Tuan , Nguyen Van", font=("Segoe UI", 9), fg="#93C5FD", bg="#1E40AF")
         lbl_sub.pack(anchor="w")
 
         right_box = tk.Frame(header_container, bg="#1E40AF")
