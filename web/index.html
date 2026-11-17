@@ -114,9 +114,10 @@
           <!-- CCCD Mẫu để test nhanh -->
           <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span>Mẫu thử nhanh:</span>
-            <button type="button" onclick="setSingleCCCD('014207009207')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">014207009207 (Lò Khánh Duy)</button>
-            <button type="button" onclick="setSingleCCCD('038207001582')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">038207001582 (Trần Văn Long)</button>
-            <button type="button" onclick="setSingleCCCD('017207002124')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">017207002124 (Phạm Việt Hùng)</button>
+            <button type="button" onclick="setSingleCCCD('022208009886')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">022208009886 (HĐLĐPT: Phạm Khánh Phương)</button>
+            <button type="button" onclick="setSingleCCCD('G37-00192')" class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md font-mono font-semibold transition">G37-00192 (HĐ SPE: Nguyễn Thị Hiền)</button>
+            <button type="button" onclick="setSingleCCCD('G37-00193')" class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-md font-mono font-semibold transition">G37-00193 (HĐ SPE: Nguyễn Thị Bích Làn)</button>
+            <button type="button" onclick="setSingleCCCD('T290-19980')" class="px-2.5 py-1 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 rounded-md font-mono transition">T290-19980 (HĐ SPX: Châu Hoàng Phi)</button>
           </div>
         </form>
 
@@ -482,12 +483,28 @@
           const select = document.getElementById('cfg-folder-id');
           const currentVal = select.value || (currentConfig ? currentConfig.folder_id : 'all');
           let html = `
-            <option value="all">📁 Tất cả thư mục (Quét toàn bộ hệ thống - Khuyên dùng)</option>
+            <option value="all">⚡ Tất cả thư mục (Quét toàn bộ 8 thư mục: HĐLĐPT + HĐ BPO và các thư mục con - Khuyên dùng)</option>
             <option value="">📁 Thư mục gốc ngoài cùng (Root)</option>
           `;
-          data.folders.forEach(f => {
-            html += `<option value="${f.id}">📁 ${f.name} (ID: ${f.id})</option>`;
+
+          // Phân loại và hiển thị theo dạng cây (Tree hierarchy)
+          const parentFolders = data.folders.filter(f => !f.parent_id);
+          const childFolders = data.folders.filter(f => !!f.parent_id);
+
+          parentFolders.forEach(parent => {
+            html += `<option value="${parent.id}">📂 ${parent.name} (Thư mục chính - ID: ${parent.id})</option>`;
+            const children = childFolders.filter(c => c.parent_id === parent.id);
+            children.forEach(child => {
+              html += `<option value="${child.id}">&nbsp;&nbsp;&nbsp;&nbsp;└── 📁 ${child.name} (ID: ${child.id})</option>`;
+            });
           });
+
+          // Các thư mục con mồ côi nếu có
+          const listedChildIds = childFolders.filter(c => parentFolders.some(p => p.id === c.parent_id)).map(c => c.id);
+          childFolders.filter(c => !listedChildIds.includes(c.id)).forEach(orphan => {
+            html += `<option value="${orphan.id}">📁 ${orphan.name} (ID: ${orphan.id})</option>`;
+          });
+
           select.innerHTML = html;
           if (currentVal !== undefined && currentVal !== null) {
             select.value = String(currentVal);
