@@ -31,6 +31,19 @@ document.addEventListener("DOMContentLoaded", () => {
     hideToastTimeout = setTimeout(() => { toast.style.display = "none"; }, duration);
   }
 
+  function decodeJwt(token) {
+    if (!token) return {};
+    try {
+      const parts = token.split(".");
+      if (parts.length >= 2) {
+        const padded = parts[1] + "=".repeat((4 - (parts[1].length % 4)) % 4);
+        const decoded = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+        return JSON.parse(decoded);
+      }
+    } catch (e) {}
+    return {};
+  }
+
   // Tải trạng thái từ Chrome Storage và cập nhật giao diện
   function refreshUI() {
     chrome.storage.local.get({
@@ -52,10 +65,18 @@ document.addEventListener("DOMContentLoaded", () => {
       chkRender.checked = data.syncToRender !== false;
       chkLocal.checked = data.syncToLocal === true;
 
-      // Cập nhật Badge Token
+      // Cập nhật Badge Token và kiểm tra hạn sử dụng
       if (data.lastSyncedToken) {
-        badgeToken.className = "status-badge badge-success";
-        badgeToken.textContent = "🟢 Đã có Token";
+        const jwt = decodeJwt(data.lastSyncedToken);
+        const isExp = jwt.exp && ((Date.now() / 1000) >= jwt.exp);
+
+        if (isExp) {
+          badgeToken.className = "status-badge badge-error";
+          badgeToken.textContent = "🔴 Token đã hết hạn";
+        } else {
+          badgeToken.className = "status-badge badge-success";
+          badgeToken.textContent = "🟢 Đã có Token";
+        }
 
         if (data.tokenUser) {
           rowUser.style.display = "flex";
@@ -66,7 +87,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (data.tokenExp) {
           rowExp.style.display = "flex";
-          txtExp.textContent = data.tokenExp;
+          txtExp.textContent = isExp ? `${data.tokenExp} (HẾT HẠN - Hãy bấm vào 1 thư mục WeSign)` : data.tokenExp;
+          txtExp.style.color = isExp ? "#DC2626" : "#2563EB";
         } else {
           rowExp.style.display = "none";
         }

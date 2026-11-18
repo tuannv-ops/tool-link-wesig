@@ -245,6 +245,18 @@ async function processAndSync(token, tenantId, deviceId, extraCookies, folderId,
 
     // 2. Tự động giải mã tenant_id và thông tin người dùng từ JWT
     const jwtData = decodeJwt(currentToken);
+
+    // Kiểm tra hạn sử dụng Token: nếu đã hết hạn thì cảnh báo và không đồng bộ Token chết
+    if (jwtData.exp && (now / 1000) >= jwtData.exp) {
+      chrome.action.setBadgeText({ text: "EXP" });
+      chrome.action.setBadgeBackgroundColor({ color: "#EF4444" });
+      return {
+        success: false,
+        message: "⚠️ Token WeSign hiện tại đã hết hạn. Vui lòng bấm vào 1 thư mục bất kỳ trên trang WeSign (hoặc đăng nhập lại) để tạo Token mới!",
+        expired: true
+      };
+    }
+
     if (!tenantId && jwtData.tenantid) tenantId = jwtData.tenantid;
     if (!deviceId && cookieMap.has("deviceId")) deviceId = cookieMap.get("deviceId");
     if (!deviceId && jwtData.sessionid) deviceId = jwtData.sessionid;
