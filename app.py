@@ -80,6 +80,26 @@ class AppHandler(BaseHTTPRequestHandler):
             self._send_json({"success": True, "folders": folders})
             return
 
+        if path == '/api/debug-connection':
+            import requests
+            from wesign_api import parse_cookies_str
+            debug_info = {}
+            cluster = client.get_cluster()
+            debug_info['cluster'] = cluster
+            debug_info['token_len'] = len(client.config.get('token', ''))
+            debug_info['cookie_len'] = len(client.config.get('cookie', ''))
+            headers = client._get_headers()
+            cookies = parse_cookies_str(client.config.get('cookie', ''))
+            url = f"https://amisapp.misa.vn/wesign/{cluster}/api/file-management/api/v1/documents/get-folder"
+            try:
+                r = requests.post(url, headers=headers, cookies=cookies, json={}, timeout=10)
+                debug_info['status_code'] = r.status_code
+                debug_info['response'] = r.text[:300]
+            except Exception as e:
+                debug_info['error'] = str(e)
+            self._send_json(debug_info)
+            return
+
         self.send_response(404)
         self.end_headers()
 
