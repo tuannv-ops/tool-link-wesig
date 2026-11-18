@@ -429,34 +429,54 @@ class WeSignClient:
             exp_str = datetime.fromtimestamp(exp_time).strftime("%H:%M:%S") if exp_time else ""
             return {
                 "success": False,
-                "message": f"Phiên đăng nhập WeSign đã hết hạn{f' lúc {exp_str}' if exp_str else ''}. Hãy mở lại tab WeSign (để Extension cập nhật) hoặc dán cURL mới!",
+                "message": f"Phiên đăng nhập WeSign đã hết hạn{f' lúc {exp_str}' if exp_str else ''}. Vui lòng dán cURL mới hoặc mở tab WeSign để Extension đồng bộ!",
                 "expired": True
             }
+
+        # Gọi trực tiếp API WeSign để kiểm tra thực tế xem Token còn sống không
+        url = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/folders/get-folder'
+        headers = self._get_headers()
+        cookies = parse_cookies_str(self.config.get('cookie', ''))
+        try:
+            r = requests.post(url, headers=headers, cookies=cookies, json={}, timeout=10)
+            if r.status_code == 401:
+                return {
+                    "success": False,
+                    "message": "Phiên đăng nhập MISA WeSign đã hết hạn (401 Unauthorized). Vui lòng dán cURL mới hoặc bấm Đồng Bộ trên Extension!",
+                    "expired": True
+                }
+        except Exception:
+            pass
 
         user_info = self._get_user_info()
         user_name = user_info.get('user_name') or 'AMIS WeSign'
         folder_id = self.config.get('folder_id')
         folders = self.get_folders(force_refresh=True)
 
+        if not folders:
+            return {
+                "success": False,
+                "message": "Không thể kết nối đến MISA WeSign hoặc Token đã hết hạn (401). Vui lòng cập nhật Token mới!",
+                "expired": True
+            }
+
         is_all_folders = str(folder_id).strip().lower() in ['all', 'tat-ca', 'all_folders', 'tatca']
         max_p = 1 if is_all_folders else 3
         batches = self.get_all_batches(force_refresh=True, max_pages=max_p)
 
-        if batches or folders:
-            total = len(batches)
-            first_name = batches[0].get('name', 'Đợt tài liệu') if batches else ''
-            folder_info = " (Tất cả thư mục)" if is_all_folders else (f" (Folder: {folder_id})" if folder_id else " (Thư mục gốc)")
-            folder_count_info = f" | {len(folders)} thư mục" if folders else ""
-            return {
-                "success": True,
-                "message": f"Kết nối thành công! Đăng nhập: {user_name}. Đã nạp {total} đợt tài liệu{folder_count_info}{folder_info}{f' (VD: {first_name})' if first_name else ''}",
-                "batchName": f"{user_name} - {total} đợt tài liệu{folder_info}",
-                "total": total,
-                "userName": user_name,
-                "folderId": folder_id,
-                "folders": folders
-            }
-        return {"success": False, "message": "Không thể kết nối hoặc Token/Cookie đã hết hạn. Hãy copy cURL mới từ WeSign để cập nhật."}
+        total = len(batches)
+        first_name = batches[0].get('name', 'Đợt tài liệu') if batches else ''
+        folder_info = " (Tất cả thư mục)" if is_all_folders else (f" (Folder: {folder_id})" if folder_id else " (Thư mục gốc)")
+        folder_count_info = f" | {len(folders)} thư mục" if folders else ""
+        return {
+            "success": True,
+            "message": f"Kết nối thành công! Đăng nhập: {user_name}. Đã nạp {total} đợt tài liệu{folder_count_info}{folder_info}{f' (VD: {first_name})' if first_name else ''}",
+            "batchName": f"{user_name} - {total} đợt tài liệu{folder_info}",
+            "total": total,
+            "userName": user_name,
+            "folderId": folder_id,
+            "folders": folders
+        }
 
     def _extract_worker_participant(self, participants, doc_name):
         if not participants:
