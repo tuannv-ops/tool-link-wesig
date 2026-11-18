@@ -116,4 +116,4 @@ Phiên đăng nhập trên WeSign hoặc mã bảo vệ Cloudflare (`cf_clearanc
 
 - **Người phát triển:** Nguyễn Văn Tuấn
 - **Hỗ trợ / Báo lỗi qua Zalo:** [0353225093](https://zalo.me/0353225093)
-- **Hỗ trợ qua Lark:** Tuan , Nguyen Van
+- **Hỗ trợ qua Lark:** [Tuan , Nguyen Van](https://www.larksuite.com/invitation/page/add_contact/?token=9aar66d9-f1ad-480a-b913-bd18d453d89o&unique_id=DjQeygXIOfPvv4K6kHUa0Q==)

@@ -96,8 +96,9 @@ class WeSignGUIApp:
 
         lbl_title = tk.Label(text_title_box, text="TOOL LẤY LINK HỢP ĐỒNG LAO ĐỘNG NHANH", font=("Segoe UI", 13, "bold"), fg="white", bg="#1E40AF")
         lbl_title.pack(anchor="w")
-        lbl_sub = tk.Label(text_title_box, text="Dev: Nguyễn Văn Tuấn | Zalo: 0353225093 | Lark: Tuan , Nguyen Van", font=("Segoe UI", 9), fg="#93C5FD", bg="#1E40AF")
+        lbl_sub = tk.Label(text_title_box, text="Dev: Nguyễn Văn Tuấn | Zalo: 0353225093 | Lark: Tuan , Nguyen Van (Click kết nối Lark)", font=("Segoe UI", 9, "underline"), fg="#93C5FD", bg="#1E40AF", cursor="hand2")
         lbl_sub.pack(anchor="w")
+        lbl_sub.bind("<Button-1>", lambda e: webbrowser.open("https://www.larksuite.com/invitation/page/add_contact/?token=9aar66d9-f1ad-480a-b913-bd18d453d89o&unique_id=DjQeygXIOfPvv4K6kHUa0Q=="))
 
         right_box = tk.Frame(header_container, bg="#1E40AF")
         right_box.pack(side=tk.RIGHT)
