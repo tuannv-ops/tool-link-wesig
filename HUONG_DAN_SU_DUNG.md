@@ -60,6 +60,29 @@ Có 2 phương thức nhập dữ liệu:
 
 ---
 
+## 3. CÁCH DÙNG CHROME EXTENSION (TỰ ĐỘNG ĐỒNG BỘ TOKEN & COOKIE LÊN RENDER)
+
+Extension `chrome_extension` giúp bạn tự động bắt Token & Cookie khi đang đăng nhập MISA WeSign và đồng bộ thẳng lên máy chủ Render (`https://tool-link-wesig.onrender.com`).
+
+### Cách cài đặt Extension vào Chrome / Edge / Cốc Cốc:
+1. Mở trình duyệt Chrome -> Vào đường dẫn: `chrome://extensions/`
+2. Bật công tắc **"Chế độ dành cho nhà phát triển" (Developer mode)** ở góc trên bên phải.
+3. Bấm nút **"Tải tiện ích đã giải nén" (Load unpacked)**.
+4. Chọn thư mục **`chrome_extension`** trong thư mục dự án này.
+5. Ghim biểu tượng Extension chữ **W** lên thanh công cụ của trình duyệt.
+
+### Cách đồng bộ Cookie & Token lên Render:
+1. Đăng nhập vào trang **MISA WeSign** (`https://amisapp.misa.vn/wesign/home`).
+2. Bấm vào biểu tượng Extension **W** trên thanh công cụ:
+   - Extension sẽ tự động phát hiện số lượng Cookie và Token đang có.
+   - Bấm nút: **🚀 ĐỒNG BỘ TOKEN & COOKIE NGAY LÊN RENDER**.
+   - Thông báo xanh hiện ra: *"🎉 Đã đồng bộ Token & Cookie WeSign lên Server thành công!"*.
+3. Nếu cần sao chép nhanh:
+   - Bấm nút **📋 Sao Chép cURL** để copy câu lệnh cURL hoàn chỉnh.
+   - Bấm nút **🍪 Copy Cookie** để sao chép chuỗi cookie.
+
+---
+
 ## 4. CÁCH CẬP NHẬT TOKEN & COOKIE KHI HẾT HẠN
 
 Phiên đăng nhập trên WeSign hoặc mã bảo vệ Cloudflare (`cf_clearance`) có thời hạn nhất định. Khi nhận thông báo lỗi **401 Unauthorized** hoặc **423 Locked**, bạn chỉ cần cập nhật lại thông tin như sau:

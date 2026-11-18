@@ -6,23 +6,23 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      width: 360px;
+      width: 380px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #F8FAFC;
       color: #1E293B;
-      padding: 16px;
+      padding: 14px;
     }
     .header {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       border-bottom: 1px solid #E2E8F0;
-      padding-bottom: 12px;
+      padding-bottom: 10px;
     }
     .logo-icon {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       background: linear-gradient(135deg, #1E40AF, #3B82F6);
       border-radius: 10px;
       display: flex;
@@ -30,9 +30,10 @@
       justify-content: center;
       color: white;
       font-weight: bold;
-      font-size: 16px;
+      font-size: 17px;
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
     }
-    .title h1 { font-size: 15px; font-weight: 700; color: #0F172A; }
+    .title h1 { font-size: 14px; font-weight: 700; color: #0F172A; }
     .title p { font-size: 11px; color: #64748B; }
     
     .card {
@@ -40,15 +41,15 @@
       border: 1px solid #E2E8F0;
       border-radius: 12px;
       padding: 12px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
     .status-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-size: 12px;
-      margin-bottom: 8px;
+      margin-bottom: 7px;
     }
     .status-row:last-child { margin-bottom: 0; }
     .status-badge {
@@ -62,15 +63,17 @@
     }
     .badge-success { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
     .badge-waiting { background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
+    .badge-error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
 
-    .label { color: #64748B; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+    .label { color: #64748B; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }
+    
     .input-group { margin-bottom: 8px; }
     .input-group label {
       display: flex;
       align-items: center;
       gap: 6px;
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 11px;
+      font-weight: 600;
       cursor: pointer;
     }
     .input-group input[type="text"] {
@@ -93,7 +96,7 @@
       justify-content: center;
       gap: 6px;
       width: 100%;
-      padding: 8px 12px;
+      padding: 9px 12px;
       border-radius: 8px;
       font-size: 12px;
       font-weight: 600;
@@ -101,94 +104,136 @@
       border: none;
       transition: all 0.15s ease;
       text-decoration: none;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
     .btn:last-child { margin-bottom: 0; }
-    .btn-primary { background: #2563EB; color: white; }
-    .btn-primary:hover { background: #1D4ED8; }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .btn-primary { background: #2563EB; color: white; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25); }
+    .btn-primary:hover:not(:disabled) { background: #1D4ED8; }
     .btn-success { background: #059669; color: white; }
-    .btn-success:hover { background: #047857; }
+    .btn-success:hover:not(:disabled) { background: #047857; }
     .btn-secondary { background: #F1F5F9; color: #334155; border: 1px solid #CBD5E1; }
-    .btn-secondary:hover { background: #E2E8F0; }
+    .btn-secondary:hover:not(:disabled) { background: #E2E8F0; }
+    .btn-amber { background: #D97706; color: white; }
+    .btn-amber:hover:not(:disabled) { background: #B45309; }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .btn-row .btn { margin-bottom: 0; }
 
     .toast {
       display: none;
-      padding: 8px 10px;
-      border-radius: 6px;
+      padding: 8px 12px;
+      border-radius: 8px;
       font-size: 11px;
       text-align: center;
       margin-top: 8px;
+      font-weight: 500;
+      line-height: 1.4;
     }
     .toast-success { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
     .toast-error { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+    .toast-info { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="logo-icon">W</div>
     <div class="title">
-      <h1>WeSign Auto Sync</h1>
-      <p>Tự động cập nhật Token MISA</p>
+      <h1>WeSign Auto Sync v1.1.0</h1>
+      <p>Tự động bắt Token & Cookie MISA WeSign</p>
     </div>
   </div>
 
-  <!-- Trạng thái -->
+  <!-- Trạng thái Token & Cookie -->
   <div class="card">
     <div class="status-row">
-      <span>Trạng thái Token:</span>
-      <span id="badge-token" class="status-badge badge-waiting">⏳ Chờ đăng nhập</span>
+      <span style="font-weight: 500;">Token WeSign:</span>
+      <span id="badge-token" class="status-badge badge-waiting">⏳ Đang kiểm tra...</span>
     </div>
-    <div class="status-row" style="margin-top: 6px;">
-      <span>Lần đồng bộ gần nhất:</span>
+    <div class="status-row">
+      <span style="font-weight: 500;">Cookie WeSign:</span>
+      <span id="badge-cookie" class="status-badge badge-waiting">⏳ Đang kiểm tra...</span>
+    </div>
+    <div class="status-row" id="row-user" style="display: none;">
+      <span style="color: #64748B;">Tài khoản MISA:</span>
+      <span id="txt-user" style="font-weight: 600; font-size: 11px; color: #1E293B;"></span>
+    </div>
+    <div class="status-row" id="row-exp" style="display: none;">
+      <span style="color: #64748B;">Hạn dùng Token:</span>
+      <span id="txt-exp" style="font-weight: 600; font-size: 11px; color: #2563EB;"></span>
+    </div>
+    <div class="status-row" style="margin-top: 4px; padding-top: 6px; border-top: 1px dashed #E2E8F0;">
+      <span style="color: #64748B;">Đồng bộ gần nhất:</span>
       <span id="txt-last-sync" style="font-weight: 600; font-size: 11px;">Chưa có</span>
     </div>
-    <div class="status-row" style="margin-top: 6px;">
-      <span>Tổng số lần tự động:</span>
-      <span id="txt-count" style="font-weight: bold; color: #2563EB;">0 lần</span>
+    <div class="status-row">
+      <span style="color: #64748B;">Chi tiết máy chủ:</span>
+      <span id="txt-status" style="font-size: 10px; color: #475569; max-width: 220px; text-align: right; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">-</span>
     </div>
   </div>
 
   <!-- Cấu hình máy chủ nhận -->
   <div class="card">
-    <div class="label">Máy chủ nhận Token:</div>
+    <div class="label">Máy chủ nhận cấu hình:</div>
     <div class="input-group">
       <label>
         <input type="checkbox" id="chk-render" checked>
-        <span>Web Render (Online 24/7):</span>
+        <span>Render Online (Khuyên dùng):</span>
       </label>
       <input type="text" id="txt-render" value="https://tool-link-wesig.onrender.com">
     </div>
     <div class="input-group" style="margin-bottom: 0;">
       <label>
-        <input type="checkbox" id="chk-local" checked>
-        <span>Máy tính cá nhân (Localhost):</span>
+        <input type="checkbox" id="chk-local">
+        <span>Máy tính cục bộ (Localhost 5050):</span>
       </label>
       <input type="text" id="txt-local" value="http://localhost:5050">
     </div>
   </div>
 
-  <!-- Các nút hành động -->
+  <!-- Các nút hành động chính -->
   <div>
-    <button id="btn-open-misa" class="btn btn-primary">
-      🔑 Mở MISA WeSign Đăng Nhập
+    <!-- Nút Đồng bộ ngay -->
+    <button id="btn-force-sync" class="btn btn-primary" style="font-size: 13px; padding: 10px 12px;">
+      🚀 ĐỒNG BỘ TOKEN & COOKIE NGAY LÊN RENDER
     </button>
-    <button id="btn-manual-sync" class="btn btn-secondary">
-      🔄 Kích Hoạt Đồng Bộ Ngay
-    </button>
-    <button id="btn-open-tool" class="btn btn-success">
-      🌐 Mở Web Tool Tra Cứu
-    </button>
+
+    <!-- Hàng nút sao chép tiện ích -->
+    <div class="btn-row">
+      <button id="btn-copy-curl" class="btn btn-amber" title="Tạo và sao chép cURL hoàn chỉnh để dán vào Web Tool">
+        📋 Sao Chép cURL
+      </button>
+      <button id="btn-copy-cookie" class="btn btn-secondary" title="Sao chép nhanh chuỗi Cookie WeSign">
+        🍪 Copy Cookie
+      </button>
+    </div>
+
+    <!-- Hàng nút điều hướng -->
+    <div class="btn-row">
+      <button id="btn-open-misa" class="btn btn-secondary">
+        🔑 Mở MISA WeSign
+      </button>
+      <button id="btn-open-tool" class="btn btn-success">
+        🌐 Mở Web Tool
+      </button>
+    </div>
   </div>
 
+  <!-- Thông báo trạng thái Toast -->
+  <div id="toast" class="toast"></div>
+
   <!-- Thông tin người phát triển -->
-  <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid #E2E8F0; text-align: center; font-size: 11px; color: #64748B; line-height: 1.5;">
+  <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #E2E8F0; text-align: center; font-size: 11px; color: #64748B; line-height: 1.4;">
     <div>Người phát triển: <strong style="color: #0F172A;">Nguyễn Văn Tuấn</strong></div>
     <div style="margin-top: 2px;">
       Báo lỗi Zalo: <a href="https://zalo.me/0353225093" target="_blank" style="color: #2563EB; font-weight: 700; text-decoration: none;">0353225093</a> | Lark: <strong style="color: #4338CA;">Tuan , Nguyen Van</strong>
     </div>
   </div>
-
-  <div id="toast" class="toast"></div>
 
   <script src="popup.js"></script>
 </body>
