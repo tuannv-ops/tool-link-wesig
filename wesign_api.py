@@ -154,6 +154,7 @@ class WeSignClient:
     def save_config(self, new_config=None):
         if new_config:
             self.config.update(new_config)
+            self.active_cluster = None
             self.cached_batches = []
             self.contracts_cache = {}
             if 'token' in new_config or 'cookie' in new_config:
@@ -162,6 +163,34 @@ class WeSignClient:
         with open(self.config_path, 'w', encoding='utf-8') as f:
             json.dump(self.config, f, ensure_ascii=False, indent=2)
         return self.config
+
+    def get_cluster(self):
+        """
+        Tự động phát hiện cluster gateway g1 hoặc g2 của MISA WeSign từ JWT token (trường iss).
+        Ví dụ: 'amis-wesign-g1-wesign-auth-svc' -> g1, 'amis-wesign-g2-wesign-auth-svc' -> g2.
+        """
+        if getattr(self, 'active_cluster', None):
+            return self.active_cluster
+        token = self.config.get('token', '')
+        try:
+            parts = token.split('.')
+            if len(parts) >= 2:
+                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                payload = json.loads(base64.b64decode(padded).decode('utf-8'))
+                iss = (payload.get('iss') or '').lower()
+                if 'g1' in iss:
+                    self.active_cluster = 'g1'
+                    return 'g1'
+                if 'g2' in iss:
+                    self.active_cluster = 'g2'
+                    return 'g2'
+        except Exception:
+            pass
+        return 'g2'
+
+    def get_api_base(self):
+        cluster = self.get_cluster()
+        return f"https://amisapp.misa.vn/wesign/{cluster}/api/file-management/api"
 
     def _get_headers(self):
         tenant_id = self.config.get('tenant_id', '')
@@ -190,35 +219,41 @@ class WeSignClient:
     def get_folders(self, force_refresh=False):
         """
         Lấy danh sách tất cả các thư mục từ MISA WeSign:
-        POST /wesign/g2/api/file-management/api/v1/documents/get-folder
+        POST /wesign/{cluster}/api/file-management/api/v1/documents/get-folder
+        Tự động hỗ trợ cả 2 cluster g1 và g2.
         """
         now = time.time()
         if not force_refresh and self.cached_folders and (now - self.folders_cache_time < 300):
             return self.cached_folders
 
-        url = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/get-folder'
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
 
-        try:
-            r = requests.post(url, headers=headers, cookies=cookies, json={}, timeout=10)
-            if r.status_code == 200:
-                raw_folders = r.json() or []
-                folders_list = []
-                for f in raw_folders:
-                    f_id = f.get('id')
-                    if f_id is not None:
-                        folders_list.append({
-                            "id": f_id,
-                            "name": f.get('folderName', f'Thư mục {f_id}'),
-                            "parent_id": f.get('parentID'),
-                            "code": f.get('folderCode', '')
-                        })
-                self.cached_folders = folders_list
-                self.folders_cache_time = now
-                return folders_list
-        except Exception as e:
-            print(f"Lỗi lấy danh sách thư mục từ WeSign: {e}")
+        cluster = self.get_cluster()
+        clusters_to_try = [cluster, ('g1' if cluster == 'g2' else 'g2')]
+
+        for c in clusters_to_try:
+            url = f"https://amisapp.misa.vn/wesign/{c}/api/file-management/api/v1/documents/get-folder"
+            try:
+                r = requests.post(url, headers=headers, cookies=cookies, json={}, timeout=10)
+                if r.status_code == 200:
+                    self.active_cluster = c
+                    raw_folders = r.json() or []
+                    folders_list = []
+                    for f in raw_folders:
+                        f_id = f.get('id')
+                        if f_id is not None:
+                            folders_list.append({
+                                "id": f_id,
+                                "name": f.get('folderName', f'Thư mục {f_id}'),
+                                "parent_id": f.get('parentID'),
+                                "code": f.get('folderCode', '')
+                            })
+                    self.cached_folders = folders_list
+                    self.folders_cache_time = now
+                    return folders_list
+            except Exception as e:
+                print(f"Lỗi lấy danh sách thư mục từ WeSign cluster {c}: {e}")
         return self.cached_folders or []
 
     def _get_user_info(self):
@@ -265,7 +300,7 @@ class WeSignClient:
         if not force_refresh and self.cached_batches and (now - self.batches_cache_time < 300):
             return self.cached_batches
 
-        url = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/data'
+        url = f"{self.get_api_base()}/v1/documents/paging/data"
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
 
@@ -360,7 +395,7 @@ class WeSignClient:
         if not batches:
             return self.contracts_cache
 
-        url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/batch-data'
+        url_batch = f"{self.get_api_base()}/v1/documents/paging/batch-data"
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
         tenant_id = self.config.get('tenant_id', '')
@@ -433,21 +468,6 @@ class WeSignClient:
                 "expired": True
             }
 
-        # Gọi trực tiếp API WeSign để kiểm tra thực tế xem Token còn sống không
-        url = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/folders/get-folder'
-        headers = self._get_headers()
-        cookies = parse_cookies_str(self.config.get('cookie', ''))
-        try:
-            r = requests.post(url, headers=headers, cookies=cookies, json={}, timeout=10)
-            if r.status_code == 401:
-                return {
-                    "success": False,
-                    "message": "Phiên đăng nhập MISA WeSign đã hết hạn (401 Unauthorized). Vui lòng dán cURL mới hoặc bấm Đồng Bộ trên Extension!",
-                    "expired": True
-                }
-        except Exception:
-            pass
-
         user_info = self._get_user_info()
         user_name = user_info.get('user_name') or 'AMIS WeSign'
         folder_id = self.config.get('folder_id')
@@ -499,7 +519,7 @@ class WeSignClient:
         return participants[0]
 
     def _get_sign_link(self, doc_id, participant_id, headers, cookies):
-        url_sign = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/sign-link'
+        url_sign = f"{self.get_api_base()}/v2/documents/sign-link"
         body_sign = {
             "documentId": doc_id,
             "documentParticipantId": participant_id
@@ -528,7 +548,7 @@ class WeSignClient:
                 "events": []
             }
 
-        url = f"https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/{doc_id}/histories"
+        url = f"{self.get_api_base()}/v1/documents/{doc_id}/histories"
         headers = self._get_headers()
         cookies = parse_cookies_str(self.config.get('cookie', ''))
 
@@ -754,8 +774,8 @@ class WeSignClient:
         if len(cccd_clean) < 12 and cccd_clean.isdigit():
             variants.append(cccd_clean.zfill(12))
 
-        url_search = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/data'
-        url_batch = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v1/documents/paging/batch-data'
+        url_search = f"{self.get_api_base()}/v1/documents/paging/data"
+        url_batch = f"{self.get_api_base()}/v1/documents/paging/batch-data"
 
         # Lấy danh sách tất cả các thư mục có trên WeSign
         all_known_folders = self.get_folders()
@@ -852,7 +872,7 @@ class WeSignClient:
                 try:
                     r_batch = requests.post(url_batch, headers=headers, cookies=cookies, json=body_b, timeout=8)
                     if r_batch.status_code != 200:
-                        url_b2 = 'https://amisapp.misa.vn/wesign/g2/api/file-management/api/v2/documents/paging/batch-data'
+                        url_b2 = f"{self.get_api_base()}/v2/documents/paging/batch-data"
                         r_batch = requests.post(url_b2, headers=headers, cookies=cookies, json=body_b, timeout=8)
                         if r_batch.status_code != 200:
                             continue
